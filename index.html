@@ -1060,8 +1060,9 @@
                 const carriedOver = carryforwardDebts[shareUnit] || 0;
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
-                const totalTarget = hTarget + uTarget + carriedOver;
-                const net = paid - totalTarget;
+                const currentMonthTarget = hTarget + uTarget;
+                const totalTargetWithCarry = currentMonthTarget + carriedOver;
+                const net = paid - totalTargetWithCarry;
 
                 const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[shareUnit];
                 let paidAmount = 0;
@@ -1128,8 +1129,9 @@
                 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
-                const totalTarget = hTarget + uTarget + carriedOver;
-                const net = paid - totalTarget;
+                const currentMonthTarget = hTarget + uTarget;
+                const totalTargetWithCarry = currentMonthTarget + carriedOver;
+                const net = paid - totalTargetWithCarry;
 
                 const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[shareUnit];
                 let paidAmount = 0;
@@ -1207,7 +1209,7 @@
                 row.innerHTML = `
                     <td><strong>${displayShareUnit}</strong> ${rowSubInfo}</td>
                     <td class="val-paid">$${paid.toFixed(2)}</td>
-                    <td class="val-target">$${totalTarget.toFixed(2)}</td>
+                    <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
                     <td class="${statusClass}">${statusText}</td>
                     ${actionButtonHtml}
