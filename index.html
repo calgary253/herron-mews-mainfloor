@@ -1233,15 +1233,32 @@
                 settlementBody.appendChild(row);
             });
 
-        // Section 4: Previous Month Unpaid Balances Tracker
-        const prevBalancesBody = document.getElementById('prev-month-balances-list');
-        prevBalancesBody.innerHTML = '';
+      // Section 4: Previous Month Unpaid Balances Tracker
+            const prevBalancesBody = document.getElementById('prev-month-balances-list');
+            prevBalancesBody.innerHTML = '';
 
-        let hasPrevBalances = false;
-        upstairsShares.forEach(shareUnit => {
-            const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
-            if (prevOwedAmt > 0.005) {
-                hasPrevBalances = true;
+            // Update Section 4 Table Header dynamically to match requested format
+            const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
+            const prevMonthHeader = prevMonthCard.previousElementSibling; // h3 tag
+            if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
+                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${prevMonth})`;
+            }
+            
+            const tableParent = prevBalancesBody.closest('table');
+            if (tableParent) {
+                const theadRow = tableParent.querySelector('thead tr');
+                if (theadRow) {
+                    theadRow.innerHTML = `
+                        <th>Person / Unit</th>
+                        <th>Previous Month Due</th>
+                        <th>Status</th>
+                        <th>Admin Action</th>
+                    `;
+                }
+            }
+
+            upstairsShares.forEach(shareUnit => {
+                const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
                 const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
                 
                 let customPaidAmount = 0;
@@ -1255,36 +1272,52 @@
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                 let actionHtml = '';
-                if (isAdmin) {
+                let statusBadge = '';
+                let prevOwedDisplay = '';
+
+                if (prevOwedAmt <= 0.005) {
+                    // Fully settled or no due from previous month
+                    statusBadge = 'Settled ✓';
+                    prevOwedDisplay = '$0.00 (Settled)';
+                    actionHtml = isAdmin ? `Paid ✓ (Update Amount)` : `Settled ✓`;
+                } else if (remainingPastDue <= 0.005) {
+                    // Was due, but fully paid off via custom tracking
+                    statusBadge = 'Settled ✓';
+                    prevOwedDisplay = `-$${prevOwedAmt.toFixed(2)} (Paid)`;
+                    actionHtml = isAdmin ? `Paid ✓ (Update Amount)` : `Paid ✓`;
+                } else {
+                    // Outstanding unpaid balance remaining
+                    statusBadge = 'Outstanding';
+                    prevOwedDisplay = `-$${prevOwedAmt.toFixed(2)} (Unpaid)`;
+                }
+
+                if (isAdmin && (prevOwedAmt > 0.005 && remainingPastDue > 0.005)) {
                     actionHtml = `
                         <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
                             value="${customPaidAmount > 0 ? customPaidAmount.toFixed(2) : ''}" 
-                            placeholder="Enter Payment ($)" 
+                            placeholder="Enter Payment ($${prevOwedAmt.toFixed(2)})" 
                             onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
-                            style="width: 140px; padding: 6px; font-size: 13px;">
+                            style="width: 150px; padding: 6px; font-size: 13px;">
                     `;
-                } else {
-                    actionHtml = `<span>$${customPaidAmount.toFixed(2)} paid</span>`;
+                } else if (isAdmin && prevOwedAmt > 0.005) {
+                    actionHtml = `
+                        <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
+                            value="${customPaidAmount.toFixed(2)}" 
+                            placeholder="Update Amount" 
+                            onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
+                            style="width: 150px; padding: 6px; font-size: 13px;">
+                    `;
                 }
-
-                const statusBadge = remainingPastDue <= 0.005
-                    ? '<span style="color:#27ae60; font-weight:bold;">Settled ✓</span>' 
-                    : `<span style="color:#c0392b; font-weight:bold;">Outstanding ($${remainingPastDue.toFixed(2)} due)</span>`;
-
-                const prevOwedDisplay = remainingPastDue <= 0.005
-                    ? `$0.00 (Settled)`
-                    : `-$${prevOwedAmt.toFixed(2)} (Unpaid)`;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${displayShareUnit}</strong></td>
                     <td class="${remainingPastDue <= 0.005 ? '' : 'owes'}">${prevOwedDisplay}</td>
-                    <td>${statusBadge}</td>
+                    <td><span style="color: ${remainingPastDue <= 0.005 ? '#27ae60' : '#c0392b'}; font-weight:bold;">${statusBadge}</span></td>
                     <td>${actionHtml}</td>
                 `;
                 prevBalancesBody.appendChild(row);
-            }
-        });
+            });
 
         if (!hasPrevBalances) {
             prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from previous months. ✓</td></tr>`;
