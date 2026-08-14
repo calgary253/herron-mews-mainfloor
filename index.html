@@ -583,7 +583,6 @@
             return 0;
         }
 
-        // Helper to compute who each user owes based on standard net debts for a given month
         function getCreditorForShareInMonth(targetMonthYM, shareUnit) {
             const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
             if (monthExpenses.length === 0) return null;
@@ -647,7 +646,6 @@
                 }
             });
 
-            // Match debtors and creditors to find who pays whom
             let dIndex = 0, cIndex = 0;
             let tempDebtors = JSON.parse(JSON.stringify(debtors));
             let tempCreditors = JSON.parse(JSON.stringify(creditors));
@@ -1233,13 +1231,12 @@
                 settlementBody.appendChild(row);
             });
 
-      // Section 4: Previous Month Unpaid Balances Tracker
+            // Section 4: Previous Month Unpaid Balances Tracker
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
-            // Update Section 4 Table Header dynamically to match requested format
             const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
-            const prevMonthHeader = prevMonthCard.previousElementSibling; // h3 tag
+            const prevMonthHeader = prevMonthCard.previousElementSibling; 
             if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
                 prevMonthHeader.innerText = `Previous Month Unpaid Balances (${prevMonth})`;
             }
@@ -1257,8 +1254,14 @@
                 }
             }
 
+            let hasPrevBalances = false;
+
             upstairsShares.forEach(shareUnit => {
                 const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
+                if (prevOwedAmt > 0.005) {
+                    hasPrevBalances = true;
+                }
+
                 const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
                 
                 let customPaidAmount = 0;
@@ -1276,17 +1279,14 @@
                 let prevOwedDisplay = '';
 
                 if (prevOwedAmt <= 0.005) {
-                    // Fully settled or no due from previous month
                     statusBadge = 'Settled ✓';
                     prevOwedDisplay = '$0.00 (Settled)';
                     actionHtml = isAdmin ? `Paid ✓ (Update Amount)` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
-                    // Was due, but fully paid off via custom tracking
                     statusBadge = 'Settled ✓';
                     prevOwedDisplay = `-$${prevOwedAmt.toFixed(2)} (Paid)`;
                     actionHtml = isAdmin ? `Paid ✓ (Update Amount)` : `Paid ✓`;
                 } else {
-                    // Outstanding unpaid balance remaining
                     statusBadge = 'Outstanding';
                     prevOwedDisplay = `-$${prevOwedAmt.toFixed(2)} (Unpaid)`;
                 }
@@ -1319,9 +1319,9 @@
                 prevBalancesBody.appendChild(row);
             });
 
-        if (!hasPrevBalances) {
-            prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from previous months. ✓</td></tr>`;
-        }
+            if (!hasPrevBalances) {
+                prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from previous months. ✓</td></tr>`;
+            }
 
             document.getElementById('report-card').style.display = 'block';
             document.getElementById('report-card').scrollIntoView({ behavior: 'smooth' });
