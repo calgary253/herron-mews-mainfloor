@@ -340,9 +340,7 @@
                             <th>Total Paid</th>
                             <th>Target Share</th>
                             <th>Net Balance</th>
-                            <th>Prev. Month Balance</th>
                             <th>Status / Whom to Pay</th>
-                            <th id="settlement-action-col">Payment Action</th>
                         </tr>
                     </thead>
                     <tbody id="settlement-list">
@@ -849,7 +847,26 @@
             }
         }
 
-        async function togglePaymentStatus(month, shareUnit, fullDueAmount) {
+        async function promptAndUpdatePayment(month, shareUnit, totalOwedOrDue) {
+            if (!isAdmin) return;
+
+            const currentRecord = monthlyPayments.householdPaid?.[month]?.[shareUnit];
+            let currentPaidVal = 0;
+            if (currentRecord === true) {
+                currentPaidVal = totalOwedOrDue;
+            } else if (typeof currentRecord === 'number') {
+                currentPaidVal = currentRecord;
+            }
+
+            const inputVal = prompt(`Enter custom paid/settled amount for ${shareUnit} (${month}):`, currentPaidVal.toFixed(2));
+            if (inputVal === null) return;
+
+            const newPaidAmount = parseFloat(inputVal);
+            if (isNaN(newPaidAmount) || newPaidAmount < 0) {
+                alert("Please enter a valid positive amount.");
+                return;
+            }
+
             if (!monthlyPayments.householdPaid) {
                 monthlyPayments.householdPaid = {};
             }
@@ -857,14 +874,7 @@
                 monthlyPayments.householdPaid[month] = {};
             }
 
-            const currentPaidAmount = monthlyPayments.householdPaid[month][shareUnit];
-            const isFullyPaid = (currentPaidAmount === true || currentPaidAmount >= fullDueAmount - 0.005);
-
-            if (isFullyPaid) {
-                monthlyPayments.householdPaid[month][shareUnit] = 0;
-            } else {
-                monthlyPayments.householdPaid[month][shareUnit] = fullDueAmount > 0 ? fullDueAmount : true;
-            }
+            monthlyPayments.householdPaid[month][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             await saveExpensesToCloud();
@@ -1143,41 +1153,12 @@
                     }
                 }
 
-                // Previous month balance column entry
-                const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
-                let prevColHtml = `$0.00`;
-                if (prevOwedAmt > 0.005) {
-                    const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
-                    const isPrevPaid = (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005);
-                    if (isPrevPaid) {
-                        prevColHtml = `<span style="color:#27ae60; text-decoration:line-through;">-$${prevOwedAmt.toFixed(2)} (Paid)</span>`;
-                    } else {
-                        prevColHtml = `<span class="owes">-$${prevOwedAmt.toFixed(2)}</span>`;
-                    }
-                }
-
-                const isUserThemSelf = (currentUserShare === shareUnit);
-                const canTogglePayment = isAdmin || isUserThemSelf;
-
-                let actionButtonHtml = '';
-                const isFullySettledOrPaid = (net >= 0 ? (net - paidAmount <= 0.005) : (Math.abs(net) - paidAmount <= 0.005));
-                const actionBtnClass = isFullySettledOrPaid ? 'btn-action btn-settled' : 'btn-action btn-unpaid';
-                const actionBtnLabel = isFullySettledOrPaid ? 'Paid / Settled ✓ (Click to Undo)' : 'Mark as Paid';
-
-                if (canTogglePayment) {
-                    actionButtonHtml = `
-                        <td>
-                            <button class="${actionBtnClass}" onclick="togglePaymentStatus('${selectedMonth}', '${shareUnit}', ${Math.abs(net)})">
-                                ${actionBtnLabel}
-                            </button>
-                        </td>`;
-                } else {
-                    actionButtonHtml = `<td><span class="badge">${isFullySettledOrPaid ? 'Settled' : 'Unpaid'}</span></td>`;
-                }
-
                 let rowSubInfo = '';
-                if (paidAmount > 0 && !isFullySettledOrPaid) {
-                    rowSubInfo += `<br><small style="color:#e67e22;">Paid so far: $${paidAmount.toFixed(2)}</small>`;
+                if (paidAmount > 0) {
+                    rowSubInfo += `<br><small style="color:#6a1b9a;">Custom Settled/Paid: $${paidAmount.toFixed(2)}</small>`;
+                }
+                if (isAdmin) {
+                    rowSubInfo += `<br><button class="btn-action btn-edit" style="margin-top:4px;" onclick="promptAndUpdatePayment('${selectedMonth}', '${shareUnit}', ${Math.abs(net)})">Set Custom Amount</button>`;
                 }
 
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
@@ -1188,9 +1169,7 @@
                     <td class="val-paid">$${paid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
-                    <td>${prevColHtml}</td>
                     <td class="${statusClass}">${statusText}</td>
-                    ${actionButtonHtml}
                 `;
                 settlementBody.appendChild(row);
             });
