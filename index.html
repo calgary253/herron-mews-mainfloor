@@ -246,7 +246,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" selected>General Household Split</option>
+                    <option value="household" selected>3 Way Split</option>
                     <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
                     <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
                     <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
@@ -299,7 +299,7 @@
             <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
             
             <div class="summary-box">
-                <p><strong>Total General Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / person share)</em></p>
+                <p><strong>Total 3 Way Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / person share)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / resident)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
@@ -314,7 +314,7 @@
                     <thead>
                         <tr>
                             <th>Share Unit</th>
-                            <th>Household Spent</th>
+                            <th>3 Way Split Spent</th>
                             <th>Utility Spent</th>
                         </tr>
                     </thead>
@@ -550,7 +550,7 @@
                 container.innerHTML = `
                     <div class="prev-month-banner">
                         <h3>My Summary Previous Month (${prevMonthLabel} Standing)</h3>
-                        <p>💰 <strong>Household Expenses (${prevMonthLabel})</strong>: You were removed from the equation for August 2026.</p>
+                        <p>💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: You were removed from the equation for August 2026.</p>
                     </div>
                 `;
                 return;
@@ -625,21 +625,21 @@
             if (net >= 0) {
                 const remainingGet = net - paidAmount;
                 if (remainingGet <= 0.005) {
-                    messageHtml = `💰 <strong>Household Expenses (${prevMonthLabel})</strong>: You are fully settled up for last month! ✓`;
+                    messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: You are fully settled up for last month! ✓`;
                 } else {
-                    messageHtml = `💰 <strong>Household Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) gets back a net balance of <span class="gets-back">+$${remainingGet.toFixed(2)}</span>.`;
+                    messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) gets back a net balance of <span class="gets-back">+$${remainingGet.toFixed(2)}</span>.`;
                 }
             } else {
                 const totalOwed = Math.abs(net);
                 const remainingDebt = totalOwed - paidAmount;
                 if (remainingDebt <= 0.005) {
-                    messageHtml = `💰 <strong>Household Expenses (${prevMonthLabel})</strong>: Your previous month's balance is fully settled ✓.`;
+                    messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your previous month's balance is fully settled ✓.`;
                 } else {
                     let owesToName = specificOwesTo;
                     if (owesToName) {
-                        messageHtml = `💰 <strong>Household Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has an outstanding balance / owes to ${owesToName}: <span class="owes">-$${remainingDebt.toFixed(2)}</span>.`;
+                        messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has an outstanding balance / owes to ${owesToName}: <span class="owes">-$${remainingDebt.toFixed(2)}</span>.`;
                     } else {
-                        messageHtml = `💰 <strong>Household Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has an outstanding balance / owes <span class="owes">-$${remainingDebt.toFixed(2)}</span> from last month.`;
+                        messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has an outstanding balance / owes <span class="owes">-$${remainingDebt.toFixed(2)}</span> from last month.`;
                     }
                 }
             }
@@ -813,7 +813,7 @@
                     `;
                 }
 
-                let categoryTag = '<span style="color:#2980b9;">General Household Split</span>';
+                let categoryTag = '<span style="color:#2980b9;">3 Way Split</span>';
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
