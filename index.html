@@ -522,6 +522,57 @@
             }
         }
 
+        function calculateMonthOwedForShare(targetMonthYM, shareUnit) {
+            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
+            if (prevExpenses.length === 0) return 0;
+
+            const isAugust2026 = (targetMonthYM === '2026-08');
+            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
+            if (!activeShares.includes(shareUnit)) return 0;
+
+            let householdTotal = 0;
+            let shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareSpent = {};
+            activeShares.forEach(s => shareSpent[s] = 0);
+
+            prevExpenses.forEach(item => {
+                if (item.category === 'shaw') shawTotal += item.amount;
+                else if (item.category === 'enmax') enmaxTotal += item.amount;
+                else if (item.category === 'atco') atcoTotal += item.amount;
+                else {
+                    householdTotal += item.amount;
+                    const key = (item.paidBy || '').toLowerCase().trim();
+                    const sUnit = userToShareMap[key] || "Jigneshkumar";
+                    if (shareSpent[sUnit] !== undefined) shareSpent[sUnit] += item.amount;
+                }
+            });
+
+            const householdDivisor = isAugust2026 ? 3 : 5;
+            const utilityResidents = isAugust2026 ? 8 : 9;
+
+            const householdSharePerUnit = householdTotal / householdDivisor; 
+            const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
+            
+            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+
+            const paid = shareSpent[shareUnit] || 0;
+            const hTarget = householdSharePerUnit * weightMap[shareUnit];
+            const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
+            const totalTarget = hTarget + uTarget;
+            const netBeforePayment = paid - totalTarget;
+
+            if (netBeforePayment < -0.005) {
+                const totalOwed = Math.abs(netBeforePayment);
+                const currentYM = getLocalMonthString();
+                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[currentYM]?.[shareUnit];
+                const isPrevPaid = (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005);
+                if (isPrevPaid) return 0;
+                return totalOwed;
+            }
+            return 0;
+        }
+
         function renderPreviousMonthSummary() {
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
@@ -531,44 +582,8 @@
             const [pYear, pMonth] = prevMonthYM.split('-');
             const prevMonthLabel = new Date(pYear, pMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 
-            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonthYM));
-            if (prevExpenses.length === 0) return;
-
-            const isAugust2026 = (prevMonthYM === '2026-08');
-            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-
-            let prevHouseholdTotal = 0;
-            let prevShawTotal = 0, prevEnmaxTotal = 0, prevAtcoTotal = 0;
-            const prevShareSpent = {};
-            activeShares.forEach(s => prevShareSpent[s] = 0);
-
-            prevExpenses.forEach(item => {
-                if (item.category === 'shaw') prevShawTotal += item.amount;
-                else if (item.category === 'enmax') prevEnmaxTotal += item.amount;
-                else if (item.category === 'atco') prevAtcoTotal += item.amount;
-                else {
-                    prevHouseholdTotal += item.amount;
-                    const key = (item.paidBy || '').toLowerCase().trim();
-                    const shareUnit = userToShareMap[key] || "Jigneshkumar";
-                    if (prevShareSpent[shareUnit] !== undefined) prevShareSpent[shareUnit] += item.amount;
-                }
-            });
-
-            const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidentCount = isAugust2026 ? 8 : 9;
-
-            const prevHouseholdSharePerUnit = prevHouseholdTotal / householdDivisor; 
-            const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / utilityResidentCount);
-            
-            const residentCountMap = isAugust2026 
-                ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 }
-                : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const householdShareWeightMap = isAugust2026 
-                ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 }
-                : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-
             const userShareUnit = currentUserShare;
-            if (isAugust2026 && userShareUnit === "Viru & Drashti") {
+            if (userShareUnit === "Viru & Drashti") {
                 container.innerHTML = `
                     <div class="prev-month-banner">
                         <h3>My Summary Previous Month (${prevMonthLabel} Standing)</h3>
@@ -578,27 +593,28 @@
                 return;
             }
 
-            const paid = prevShareSpent[userShareUnit] || 0;
-            const hTarget = prevHouseholdSharePerUnit * householdShareWeightMap[userShareUnit];
-            const uTarget = prevUtilitySharePerResident * residentCountMap[userShareUnit];
-            const totalTarget = hTarget + uTarget;
-            const net = paid - totalTarget;
-
-            let messageHtml = '';
-            const combinedProfileTitle = (userShareUnit === "Viru & Drashti") ? "Drashti & Viru" : userShareUnit;
-
-            if (net >= 0) {
-                messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) gets back a net balance of <span class="gets-back">+$${net.toFixed(2)}</span>.`;
-            } else {
-                const totalOwed = Math.abs(net);
-                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[currentYM]?.[userShareUnit];
-                const isPrevPaid = (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005);
-
-                if (isPrevPaid) {
-                    messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your previous month's balance ($${totalOwed.toFixed(2)}) is marked as paid ✓.`;
-                } else {
-                    messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has an outstanding balance from last month: <span class="owes">-$${totalOwed.toFixed(2)}</span>.`;
+            // Walk backward through all available archived and active months to accumulate past-due balances
+            let cumulativePastDue = 0;
+            let checkMonth = prevMonthYM;
+            let iterationCount = 0;
+            while (iterationCount < 24) {
+                const dueForMonth = calculateMonthOwedForShare(checkMonth, userShareUnit);
+                if (dueForMonth > 0) {
+                    cumulativePastDue += dueForMonth;
                 }
+                const nextCheck = getPreviousMonthString(checkMonth);
+                if (nextCheck === checkMonth) break;
+                checkMonth = nextCheck;
+                iterationCount++;
+            }
+
+            const combinedProfileTitle = (userShareUnit === "Viru & Drashti") ? "Drashti & Viru" : userShareUnit;
+            let messageHtml = '';
+
+            if (cumulativePastDue > 0.005) {
+                messageHtml = `💰 <strong>3 Way Split Expenses (Cumulative Standing)</strong>: Your combined share (${combinedProfileTitle}) has an accumulated past-due balance stretching across previous months: <span class="owes">-$${cumulativePastDue.toFixed(2)}</span>.`;
+            } else {
+                messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has no outstanding past-due balances from previous months ✓.`;
             }
 
             container.innerHTML = `
