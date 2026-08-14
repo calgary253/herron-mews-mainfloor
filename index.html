@@ -241,7 +241,7 @@
         <h1>253 Herron Mews Main Floor Household Expense Tracker</h1>
 
         <!-- Add Expense Form -->
-        <div class="card">
+        <div class="card" id="submit-expense-card">
             <h2>Submit New Expense</h2>
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
@@ -354,8 +354,8 @@
 
     <!-- Error Screen for missing/invalid link -->
     <div id="error-screen" class="no-access card" style="display: none;">
-        <h2>Invalid Access Link</h2>
-        <p>Please use your personalized link to access the expense tracker.</p>
+        <h2 id="error-title">Invalid Access Link</h2>
+        <p id="error-message">Please use your personalized link to access the expense tracker.</p>
     </div>
 
     <script>
@@ -375,6 +375,7 @@
             "viru & drashti": "Viru & Drashti"
         };
 
+        const restrictedUsers = ['viru', 'drashti', 'viru & drashti'];
         const TOTAL_UTILITY_RESIDENTS = 9; // Total building residents for utility calculations
 
         let expenses = [];
@@ -412,8 +413,12 @@
         const adminUsers = ['jigneshkumar', 'jaimin', 'ishani', 'ishanibhabhi', 'jaimin & ishani'];
         const isAdmin = (adminUsers.includes(normalizedKey) && currentRole === 'admin');
 
-        // Validate user identity from URL
+        // Validate user identity from URL and block restricted users
         if (!rawUser || !userToShareMap[normalizedKey]) {
+            document.getElementById('error-screen').style.display = 'block';
+        } else if (restrictedUsers.includes(normalizedKey)) {
+            document.getElementById('error-title').innerText = "Access Restricted";
+            document.getElementById('error-message').innerText = "Access to this expense tracker is no longer available for Viru & Drashti.";
             document.getElementById('error-screen').style.display = 'block';
         } else {
             document.getElementById('app-container').style.display = 'block';
@@ -726,6 +731,11 @@
 
         document.getElementById('expense-form').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            if (restrictedUsers.includes(normalizedKey)) {
+                alert("Action restricted. You are not allowed to submit expenses.");
+                return;
+            }
 
             const submitBtn = document.getElementById('submit-btn');
             const originalText = submitBtn.innerText;
