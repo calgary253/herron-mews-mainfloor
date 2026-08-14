@@ -299,13 +299,13 @@
             <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
             
             <div class="summary-box">
-                <p><strong>Total 3 Way Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / person share)</em></p>
+                <p><strong>Total 3 Way Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share unit)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / resident)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
                 <p>🔥 <strong>Atco Gas Total (Full Bill):</strong> $<span id="atco-total">0.00</span> <em>($<span id="atco-share">0.00</span> / resident)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
-                <p><strong>Main Floor Utility Share (3/9th Total):</strong> $<span id="utility-total">0.00</span></p>
+                <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/9th Total):</strong> $<span id="utility-total">0.00</span></p>
             </div>
 
             <h3>1. Spending Breakdown by Share Unit</h3>
@@ -533,7 +533,6 @@
 
             const householdDivisor = isAugust2026 ? 3 : 5;
             const utilityResidentCount = isAugust2026 ? 8 : 9;
-            const mainFloorUtilityMultiplier = isAugust2026 ? 3 : 5;
 
             const prevHouseholdSharePerUnit = prevHouseholdTotal / householdDivisor; 
             const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / utilityResidentCount);
@@ -1032,6 +1031,9 @@
             document.getElementById('atco-total').innerText = atcoTotal.toFixed(2);
             document.getElementById('atco-share').innerText = atcoSharePerResident.toFixed(2);
             document.getElementById('utility-total').innerText = mainFloorUtilityTotal.toFixed(2);
+            
+            const utilityMultiplierEl = document.getElementById('utility-multiplier-text');
+            if (utilityMultiplierEl) utilityMultiplierEl.innerText = mainFloorMultiplier;
 
             const spendingBody = document.getElementById('spending-breakdown-list');
             spendingBody.innerHTML = '';
