@@ -95,12 +95,16 @@
 
         /* Previous Month Summary Banner */
         .prev-month-banner {
-            background: #eef7fe;
-            border-left: 5px solid #2980b9;
+            background: #fff5f5;
+            border-left: 5px solid #e74c3c;
             padding: 15px 20px;
             border-radius: 0 6px 6px 0;
             margin-bottom: 20px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .prev-month-banner.all-settled {
+            background: #f0fdf4;
+            border-left-color: #27ae60;
         }
         .prev-month-banner h3 {
             margin-top: 0;
@@ -564,11 +568,17 @@
 
             if (netBeforePayment < -0.005) {
                 const totalOwed = Math.abs(netBeforePayment);
-                const currentYM = getLocalMonthString();
-                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[currentYM]?.[shareUnit];
-                const isPrevPaid = (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005);
-                if (isPrevPaid) return 0;
-                return totalOwed;
+                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[targetMonthYM]?.[shareUnit];
+                
+                let customPaid = 0;
+                if (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005) {
+                    customPaid = totalOwed;
+                } else if (typeof prevPaidRecord === 'number' && prevPaidRecord > 0) {
+                    customPaid = prevPaidRecord;
+                }
+
+                const remainingOwed = Math.max(0, totalOwed - customPaid);
+                return remainingOwed;
             }
             return 0;
         }
@@ -586,7 +596,7 @@
             if (userShareUnit === "Viru & Drashti") {
                 container.innerHTML = `
                     <div class="prev-month-banner">
-                        <h3>My Summary Previous Month (${prevMonthLabel} Standing)</h3>
+                        <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
                         <p>💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: You were removed from the equation for August 2026.</p>
                     </div>
                 `;
@@ -607,18 +617,20 @@
                 iterationCount++;
             }
 
-            const combinedProfileTitle = (userShareUnit === "Viru & Drashti") ? "Drashti & Viru" : userShareUnit;
+            const combinedProfileTitle = userShareUnit;
+            let bannerClass = "prev-month-banner";
             let messageHtml = '';
 
             if (cumulativePastDue > 0.005) {
-                messageHtml = `💰 <strong>3 Way Split Expenses (Cumulative Standing)</strong>: Your combined share (${combinedProfileTitle}) has an accumulated past-due balance stretching across previous months: <span class="owes">-$${cumulativePastDue.toFixed(2)}</span>.`;
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: -$${cumulativePastDue.toFixed(2)} (across past months)`;
             } else {
-                messageHtml = `💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: Your combined share (${combinedProfileTitle}) has no outstanding past-due balances from previous months ✓.`;
+                bannerClass += " all-settled";
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: $0.00 (all past months fully settled ✓)`;
             }
 
             container.innerHTML = `
-                <div class="prev-month-banner">
-                    <h3>My Summary Previous Month (${prevMonthLabel} Standing)</h3>
+                <div class="${bannerClass}">
+                    <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
                     <p>${messageHtml}</p>
                 </div>
             `;
@@ -892,6 +904,7 @@
             monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
 
             calculateSettlement();
+            renderPreviousMonthSummary();
             await saveExpensesToCloud();
         }
 
@@ -913,6 +926,7 @@
             }
 
             calculateSettlement();
+            renderPreviousMonthSummary();
             await saveExpensesToCloud();
         }
 
@@ -1060,7 +1074,6 @@
                 const currentMonthTarget = hTarget + uTarget;
                 const net = paid - currentMonthTarget;
 
-                // For current month, we assume standard calculation (custom payment removed from here)
                 let paidAmount = 0;
                 if (net >= 0) {
                     const remainingGet = net - paidAmount;
@@ -1184,7 +1197,7 @@
                         const btnText = remainingPastDue <= 0.005 ? 'Mark as Unpaid' : 'Mark as Paid ✓';
                         actionHtml = `
                             <button class="${btnClass}" onclick="togglePrevMonthPaymentStatus('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">${btnText}</button>
-                            <button class="btn-action btn-edit" style="margin-top:4px;" onclick="promptAndUpdatePrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Set Custom Amount</button>
+                            <button class="btn-action btn-edit" style="margin-top:4px;" onclick="promptAndUpdatePrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Custom Amount</button>
                         `;
                     } else {
                         actionHtml = `<span>${remainingPastDue <= 0.005 ? 'Paid' : 'Unpaid'}</span>`;
