@@ -593,7 +593,6 @@
                 return;
             }
 
-            // Walk backward through all available archived and active months to accumulate past-due balances
             let cumulativePastDue = 0;
             let checkMonth = prevMonthYM;
             let iterationCount = 0;
@@ -863,10 +862,10 @@
             }
         }
 
-        async function promptAndUpdatePayment(month, shareUnit, totalOwedOrDue) {
+        async function promptAndUpdatePrevMonthPayment(month, shareUnit, totalOwedOrDue) {
             if (!isAdmin) return;
 
-            const currentRecord = monthlyPayments.householdPaid?.[month]?.[shareUnit];
+            const currentRecord = monthlyPayments.prevMonthPaid?.[month]?.[shareUnit];
             let currentPaidVal = 0;
             if (currentRecord === true) {
                 currentPaidVal = totalOwedOrDue;
@@ -874,7 +873,7 @@
                 currentPaidVal = currentRecord;
             }
 
-            const inputVal = prompt(`Enter custom paid/settled amount for ${shareUnit} (${month}):`, currentPaidVal.toFixed(2));
+            const inputVal = prompt(`Enter custom paid amount for previous month balance (${shareUnit}):`, currentPaidVal.toFixed(2));
             if (inputVal === null) return;
 
             const newPaidAmount = parseFloat(inputVal);
@@ -883,14 +882,14 @@
                 return;
             }
 
-            if (!monthlyPayments.householdPaid) {
-                monthlyPayments.householdPaid = {};
+            if (!monthlyPayments.prevMonthPaid) {
+                monthlyPayments.prevMonthPaid = {};
             }
-            if (!monthlyPayments.householdPaid[month]) {
-                monthlyPayments.householdPaid[month] = {};
+            if (!monthlyPayments.prevMonthPaid[month]) {
+                monthlyPayments.prevMonthPaid[month] = {};
             }
 
-            monthlyPayments.householdPaid[month][shareUnit] = newPaidAmount;
+            monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             await saveExpensesToCloud();
@@ -1061,15 +1060,8 @@
                 const currentMonthTarget = hTarget + uTarget;
                 const net = paid - currentMonthTarget;
 
-                const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[shareUnit];
+                // For current month, we assume standard calculation (custom payment removed from here)
                 let paidAmount = 0;
-                if (recordVal === true) {
-                    if (net < 0) paidAmount = Math.abs(net);
-                    else if (net > 0) paidAmount = net;
-                } else if (typeof recordVal === 'number') {
-                    paidAmount = recordVal;
-                }
-
                 if (net >= 0) {
                     const remainingGet = net - paidAmount;
                     if (remainingGet > 0.005) creditors.push({ person: shareUnit, amount: remainingGet });
@@ -1127,61 +1119,34 @@
                 const currentMonthTarget = hTarget + uTarget;
                 const net = paid - currentMonthTarget;
 
-                const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[shareUnit];
-                let paidAmount = 0;
-                if (recordVal === true) {
-                    if (net < 0) paidAmount = Math.abs(net);
-                } else if (typeof recordVal === 'number') {
-                    paidAmount = recordVal;
-                }
-
                 let netClass = '';
                 let statusClass = '';
                 let statusText = '';
                 let formattedNet = '';
 
                 if (net >= 0) {
-                    const remainingGet = net - paidAmount;
-                    if (remainingGet <= 0.005) {
-                        netClass = 'val-net-positive';
-                        statusClass = 'gets-back';
+                    netClass = 'val-net-positive';
+                    statusClass = 'gets-back';
+                    if (net <= 0.005) {
                         statusText = 'Paid & Settled ✓';
                         formattedNet = `$0.00`;
                     } else {
-                        netClass = 'val-net-positive';
-                        statusClass = 'gets-back';
-                        statusText = `Gets back $${remainingGet.toFixed(2)}`;
-                        formattedNet = `$${remainingGet.toFixed(2)}`;
+                        statusText = `Gets back $${net.toFixed(2)}`;
+                        formattedNet = `$${net.toFixed(2)}`;
                     }
                 } else {
                     const totalOwed = Math.abs(net);
-                    const remainingDebt = totalOwed - paidAmount;
-                    if (remainingDebt <= 0.005) {
-                        netClass = 'val-net-positive';
-                        statusClass = 'gets-back';
-                        statusText = 'Paid & Settled ✓';
-                        formattedNet = `$0.00`;
-                    } else {
-                        netClass = 'val-net-negative';
-                        statusClass = 'owes';
-                        statusText = paidAmount > 0 ? `Owes remaining $${remainingDebt.toFixed(2)}` : `Owes $${totalOwed.toFixed(2)}`;
-                        formattedNet = `-$${remainingDebt.toFixed(2)}`;
-                    }
-                }
-
-                let rowSubInfo = '';
-                if (paidAmount > 0) {
-                    rowSubInfo += `<br><small style="color:#6a1b9a;">Custom Settled/Paid: $${paidAmount.toFixed(2)}</small>`;
-                }
-                if (isAdmin) {
-                    rowSubInfo += `<br><button class="btn-action btn-edit" style="margin-top:4px;" onclick="promptAndUpdatePayment('${selectedMonth}', '${shareUnit}', ${Math.abs(net)})">Set Custom Amount</button>`;
+                    netClass = 'val-net-negative';
+                    statusClass = 'owes';
+                    statusText = `Owes $${totalOwed.toFixed(2)}`;
+                    formattedNet = `-$${totalOwed.toFixed(2)}`;
                 }
 
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${displayShareUnit}</strong> ${rowSubInfo}</td>
+                    <td><strong>${displayShareUnit}</strong></td>
                     <td class="val-paid">$${paid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
@@ -1200,25 +1165,38 @@
                 if (prevOwedAmt > 0.005) {
                     hasPrevBalances = true;
                     const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
-                    const isPrevPaid = (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005);
+                    
+                    let customPaidAmount = 0;
+                    let isPrevPaidCompletely = false;
+                    if (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005) {
+                        isPrevPaidCompletely = true;
+                        customPaidAmount = prevOwedAmt;
+                    } else if (typeof prevPaidVal === 'number' && prevPaidVal > 0) {
+                        customPaidAmount = prevPaidVal;
+                    }
+
+                    const remainingPastDue = Math.max(0, prevOwedAmt - customPaidAmount);
                     const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                     let actionHtml = '';
                     if (isAdmin) {
-                        const btnClass = isPrevPaid ? 'btn-action btn-settled' : 'btn-action btn-unpaid';
-                        const btnText = isPrevPaid ? 'Mark as Unpaid' : 'Mark as Paid ✓';
-                        actionHtml = `<button class="${btnClass}" onclick="togglePrevMonthPaymentStatus('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">${btnText}</button>`;
+                        const btnClass = remainingPastDue <= 0.005 ? 'btn-action btn-settled' : 'btn-action btn-unpaid';
+                        const btnText = remainingPastDue <= 0.005 ? 'Mark as Unpaid' : 'Mark as Paid ✓';
+                        actionHtml = `
+                            <button class="${btnClass}" onclick="togglePrevMonthPaymentStatus('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">${btnText}</button>
+                            <button class="btn-action btn-edit" style="margin-top:4px;" onclick="promptAndUpdatePrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Set Custom Amount</button>
+                        `;
                     } else {
-                        actionHtml = `<span>${isPrevPaid ? 'Paid' : 'Unpaid'}</span>`;
+                        actionHtml = `<span>${remainingPastDue <= 0.005 ? 'Paid' : 'Unpaid'}</span>`;
                     }
 
-                    const statusBadge = isPrevPaid 
+                    const statusBadge = remainingPastDue <= 0.005
                         ? '<span style="color:#27ae60; font-weight:bold;">Paid ✓</span>' 
-                        : '<span style="color:#c0392b; font-weight:bold;">Pending</span>';
+                        : `<span style="color:#c0392b; font-weight:bold;">Pending ($${remainingPastDue.toFixed(2)} due)</span>`;
 
                     const row = document.createElement('tr');
                     row.innerHTML = `
-                        <td><strong>${displayShareUnit}</strong></td>
+                        <td><strong>${displayShareUnit}</strong>${customPaidAmount > 0 && remainingPastDue > 0.005 ? `<br><small style="color:#6a1b9a;">Custom Paid: $${customPaidAmount.toFixed(2)}</small>` : ''}</td>
                         <td class="owes">-$${prevOwedAmt.toFixed(2)}</td>
                         <td>${statusBadge}</td>
                         <td>${actionHtml}</td>
