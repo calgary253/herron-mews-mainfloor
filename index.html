@@ -160,6 +160,11 @@
             margin-bottom: 8px;
             border-radius: 0 4px 4px 0;
             font-size: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .no-access { text-align: center; padding: 40px; background: #fff; border-radius: 8px; color: #e74c3c; }
@@ -331,6 +336,13 @@
                 <!-- Direct transfer steps populate here -->
             </ul>
 
+            <div id="admin-previous-balances-container" style="display: none;">
+                <h3>4. Previous Month Unpaid Balances</h3>
+                <ul id="prev-unpaid-list" class="payment-list">
+                    <!-- Previous month unpaid items populate here for admin toggle -->
+                </ul>
+            </div>
+
             <h3>3. Share Units Balances & Settlement</h3>
             <div class="table-responsive">
                 <table>
@@ -341,7 +353,6 @@
                             <th>Target Share</th>
                             <th>Net Balance</th>
                             <th>Status / Whom to Pay</th>
-                            <th id="settlement-action-col">Payment Action</th>
                         </tr>
                     </thead>
                     <tbody id="settlement-list">
@@ -429,6 +440,7 @@
                 document.getElementById('clear-btn').style.display = 'block';
                 document.getElementById('admin-month-filter').style.display = 'flex';
                 document.getElementById('actions-col').style.display = 'table-cell';
+                document.getElementById('admin-previous-balances-container').style.display = 'block';
             } else {
                 document.getElementById('role-badge').innerHTML = '<span class="user-badge">PERSONAL ACCOUNT</span>';
                 const adminOptions = document.querySelectorAll('.admin-option');
@@ -894,21 +906,23 @@
             }
         }
 
-        async function togglePaymentStatus(month, shareUnit, fullDueAmount) {
+        async function togglePreviousMonthPaymentStatus(prevMonthStr, shareUnit, fullDueAmount) {
+            if (!isAdmin) return;
+
             if (!monthlyPayments.householdPaid) {
                 monthlyPayments.householdPaid = {};
             }
-            if (!monthlyPayments.householdPaid[month]) {
-                monthlyPayments.householdPaid[month] = {};
+            if (!monthlyPayments.householdPaid[prevMonthStr]) {
+                monthlyPayments.householdPaid[prevMonthStr] = {};
             }
 
-            const currentPaidAmount = monthlyPayments.householdPaid[month][shareUnit];
+            const currentPaidAmount = monthlyPayments.householdPaid[prevMonthStr][shareUnit];
             const isFullyPaid = (currentPaidAmount === true || currentPaidAmount >= fullDueAmount - 0.005);
 
             if (isFullyPaid) {
-                monthlyPayments.householdPaid[month][shareUnit] = 0;
+                monthlyPayments.householdPaid[prevMonthStr][shareUnit] = 0;
             } else {
-                monthlyPayments.householdPaid[month][shareUnit] = fullDueAmount > 0 ? fullDueAmount : true;
+                monthlyPayments.householdPaid[prevMonthStr][shareUnit] = fullDueAmount > 0 ? fullDueAmount : true;
             }
 
             calculateSettlement();
@@ -921,9 +935,13 @@
 
             const prevMonth = getPreviousMonthString(selectedMonth);
             let carryforwardDebts = {};
+            let prevMonthUnpaidItems = [];
 
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
             if (prevExpenses.length > 0) {
+                const [pYear, pMonth] = prevMonth.split('-');
+                const prevMonthDisplayLabel = new Date(pYear, pMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
                 const isPrevAugust2026 = (prevMonth === '2026-08');
                 const prevActiveShares = isPrevAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
 
@@ -973,8 +991,34 @@
                         if (remainingDebt > 0.005) {
                             carryforwardDebts[shareUnit] = remainingDebt;
                         }
+
+                        const isPaidOrSettled = remainingDebt <= 0.005;
+                        const btnClass = isPaidOrSettled ? 'btn-action btn-settled' : 'btn-action btn-unpaid';
+                        const btnLabel = isPaidOrSettled ? `Paid / Settled ✓ (${prevMonthDisplayLabel}) — Click to Undo` : `Mark as Paid (${prevMonthDisplayLabel})`;
+
+                        const displayUnitName = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
+                        prevMonthUnpaidItems.push({
+                            shareUnit: shareUnit,
+                            html: `<span><strong>${displayUnitName}</strong> owes <span class="owes">-$${totalOwed.toFixed(2)}</span> from ${prevMonthDisplayLabel} ${paidAmount > 0 ? `(Paid: $${paidAmount.toFixed(2)}, Remaining: $${remainingDebt.toFixed(2)})` : ''}</span>` +
+                                  `<button class="${btnClass}" onclick="togglePreviousMonthPaymentStatus('${prevMonth}', '${shareUnit}', ${totalOwed})">${btnLabel}</button>`
+                        });
                     }
                 });
+            }
+
+            const prevUnpaidListEl = document.getElementById('prev-unpaid-list');
+            prevUnpaidListEl.innerHTML = '';
+            const prevUnpaidContainer = document.getElementById('admin-previous-balances-container');
+
+            if (isAdmin && prevMonthUnpaidItems.length > 0) {
+                prevUnpaidContainer.style.display = 'block';
+                prevMonthUnpaidItems.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = item.html;
+                    prevUnpaidListEl.appendChild(li);
+                });
+            } else {
+                prevUnpaidContainer.style.display = 'none';
             }
 
             const filtered = getFilteredExpenses();
@@ -1110,7 +1154,7 @@
                     let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
                     let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
-                    transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
+                    transferSteps.push(`<span><strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span></span>`);
 
                     debtor.amount -= transferAmount;
                     creditor.amount -= transferAmount;
@@ -1121,7 +1165,7 @@
             }
 
             if (transferSteps.length === 0) {
-                transfersList.innerHTML = '<li>All direct transfers are fully settled for this month! ✓</li>';
+                transfersList.innerHTML = '<li><span>All direct transfers are fully settled for this month! ✓</span></li>';
             } else {
                 transferSteps.forEach(step => {
                     const li = document.createElement('li');
@@ -1185,31 +1229,11 @@
                     }
                 }
 
-                const isUserThemSelf = (currentUserShare === shareUnit);
-                const canTogglePayment = isAdmin || isUserThemSelf;
-
-                let actionButtonHtml = '';
-                const isFullySettledOrPaid = (net >= 0 ? (net - paidAmount <= 0.005) : (Math.abs(net) - paidAmount <= 0.005));
-                
-                const actionBtnClass = isFullySettledOrPaid ? 'btn-action btn-settled' : 'btn-action btn-unpaid';
-                const actionBtnLabel = isFullySettledOrPaid ? 'Paid / Settled ✓ (Click to Undo)' : 'Mark as Paid';
-
-                if (canTogglePayment) {
-                    actionButtonHtml = `
-                        <td>
-                            <button class="${actionBtnClass}" onclick="togglePaymentStatus('${selectedMonth}', '${shareUnit}', ${Math.abs(net)})">
-                                ${actionBtnLabel}
-                            </button>
-                        </td>`;
-                } else {
-                    actionButtonHtml = `<td><span class="badge ${isFullySettledOrPaid ? 'bg-success' : 'bg-secondary'}">${isFullySettledOrPaid ? 'Settled' : 'Unpaid'}</span></td>`;
-                }
-
                 let rowSubInfo = '';
-                if (carriedOver > 0 && !isFullySettledOrPaid) {
+                if (carriedOver > 0) {
                     rowSubInfo += `<br><small style="color:#d35400;">Carryforward: +$${carriedOver.toFixed(2)}</small>`;
                 }
-                if (paidAmount > 0 && !isFullySettledOrPaid) {
+                if (paidAmount > 0) {
                     rowSubInfo += `<br><small style="color:#e67e22;">Paid so far: $${paidAmount.toFixed(2)}</small>`;
                 }
 
@@ -1222,7 +1246,6 @@
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
                     <td class="${statusClass}">${statusText}</td>
-                    ${actionButtonHtml}
                 `;
                 settlementBody.appendChild(row);
             });
