@@ -312,12 +312,12 @@
                 <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/9th Total):</strong> $<span id="utility-total">0.00</span></p>
             </div>
 
-            <h3>1. Spending Breakdown by Share Unit</h3>
+            <h3>1. Spending Breakdown by Person / Unit</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
+                            <th>Person / Unit</th>
                             <th>3 Way Split Spent</th>
                             <th>Utility Spent</th>
                         </tr>
@@ -340,7 +340,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
+                            <th>Person / Unit</th>
                             <th>Total Paid</th>
                             <th>Target Share</th>
                             <th>Net Balance</th>
@@ -360,8 +360,8 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
-                            <th>Unpaid Balance from Last Month</th>
+                            <th>Person / Unit</th>
+                            <th>Unpaid Balance</th>
                             <th>Status</th>
                             <th>Enter Payment ($)</th>
                         </tr>
@@ -1246,8 +1246,8 @@
                 const theadRow = tableParent.querySelector('thead tr');
                 if (theadRow) {
                     theadRow.innerHTML = `
-                        <th>Share Unit</th>
-                        <th>Unpaid Balance from Last Month</th>
+                        <th>Person / Unit</th>
+                        <th>Unpaid Balance</th>
                         <th>Status</th>
                         <th>Enter Payment ($)</th>
                     `;
