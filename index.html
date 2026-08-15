@@ -92,6 +92,8 @@
         .btn-unpaid:hover { background-color: #c0392b; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
+        .btn-admin-action { background-color: #2980b9; padding: 8px 14px; font-size: 13px; border-radius: 4px; }
+        .btn-admin-action:hover { background-color: #1f6391; }
 
         /* Previous Month Summary Banner */
         .prev-month-banner {
@@ -355,7 +357,7 @@
 
             <br>
 
-            <h3>4. Previous Month Unpaid Balances</h3>
+            <h3 id="prev-month-section-title">4. Previous Month Unpaid Balances (July 2026)</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -363,7 +365,7 @@
                             <th>Person / Unit</th>
                             <th>Unpaid Balance</th>
                             <th>Status</th>
-                            <th>Enter Payment ($)</th>
+                            <th>Admin Action</th>
                         </tr>
                     </thead>
                     <tbody id="prev-month-balances-list">
@@ -965,12 +967,16 @@
             }
         }
 
-        async function onPrevMonthPaymentInput(month, shareUnit, totalOwed, inputEl) {
+        async function promptPrevMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const valStr = inputEl.value.trim();
+            const currentPaid = monthlyPayments.prevMonthPaid?.[month]?.[shareUnit] || 0;
+            const valStr = prompt(`Enter payment amount ($) received for ${shareUnit} (Total Outstanding: $${totalOwed.toFixed(2)}):`, currentPaid > 0 ? currentPaid.toFixed(2) : '');
+            
+            if (valStr === null) return;
+
             let newPaidAmount = 0;
-            if (valStr !== "") {
+            if (valStr.trim() !== "") {
                 const parsed = parseFloat(valStr);
                 if (isNaN(parsed) || parsed < 0) {
                     alert("Please enter a valid positive amount.");
@@ -1231,27 +1237,15 @@
                 settlementBody.appendChild(row);
             });
 
-            // Section 4: Previous Month Unpaid Balances Tracker
+            // Section 4: Previous Month Unpaid Balances Tracker (July 2026)
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
-            const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
-            const prevMonthHeader = prevMonthCard.previousElementSibling; 
-            if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
-                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${prevMonth})`;
-            }
-            
-            const tableParent = prevBalancesBody.closest('table');
-            if (tableParent) {
-                const theadRow = tableParent.querySelector('thead tr');
-                if (theadRow) {
-                    theadRow.innerHTML = `
-                        <th>Person / Unit</th>
-                        <th>Unpaid Balance</th>
-                        <th>Status</th>
-                        <th>Enter Payment ($)</th>
-                    `;
-                }
+            const prevMonthSectionTitle = document.getElementById('prev-month-section-title');
+            if (prevMonthSectionTitle) {
+                const [pYear, pMonth] = prevMonth.split('-');
+                const prevMonthFormattedName = new Date(pYear, pMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                prevMonthSectionTitle.innerText = `4. Previous Month Unpaid Balances (${prevMonthFormattedName})`;
             }
 
             let hasPrevBalances = false;
@@ -1281,24 +1275,18 @@
                 if (prevOwedAmt <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
+                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">enter amount ($)</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
                 }
 
-                if (isAdmin && prevOwedAmt > 0.005) {
-                    actionHtml = `
-                        <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
-                            value="${customPaidAmount > 0 ? customPaidAmount.toFixed(2) : ''}" 
-                            placeholder="Enter Payment ($${prevOwedAmt.toFixed(2)})" 
-                            onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
-                            style="width: 180px; padding: 6px; font-size: 13px;">
-                    `;
+                if (isAdmin && prevOwedAmt > 0.005 && remainingPastDue > 0.005) {
+                    actionHtml = `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">enter amount ($)</button>`;
                 }
 
                 const row = document.createElement('tr');
