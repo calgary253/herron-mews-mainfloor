@@ -92,8 +92,13 @@
         .btn-unpaid:hover { background-color: #c0392b; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
-        .btn-admin-action { background-color: #2980b9; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
-        .btn-admin-action:hover { background-color: #1f6391; }
+        
+        /* Updated Button Styles for Previous Month Unpaid Balances */
+        .btn-admin-action { background-color: #e74c3c; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
+        .btn-admin-action:hover { background-color: #c0392b; }
+        
+        .btn-admin-settled { background-color: #27ae60; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
+        .btn-admin-settled:hover { background-color: #219150; }
 
         /* Previous Month Summary Banner */
         .prev-month-banner {
@@ -905,11 +910,11 @@
             }
         }
 
-        async function promptPrevMonthPayment(month, shareUnit, totalOwed) {
+        async function promptPrevMonthPayment(prevMonthYM, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const currentPaid = monthlyPayments.prevMonthPaid?.[month]?.[shareUnit] || 0;
-            const valStr = prompt(`Enter payment amount ($) received for ${shareUnit} (Total Outstanding: $${totalOwed.toFixed(2)}):`, currentPaid > 0 ? currentPaid.toFixed(2) : '');
+            const currentPaid = monthlyPayments.prevMonthPaid?.[prevMonthYM]?.[shareUnit] || 0;
+            const valStr = prompt(`Enter Amount ($) received for ${shareUnit} for ${prevMonthYM} (Total Outstanding: $${totalOwed.toFixed(2)}):`, currentPaid > 0 ? currentPaid.toFixed(2) : '');
             
             if (valStr === null) return;
 
@@ -926,11 +931,11 @@
             if (!monthlyPayments.prevMonthPaid) {
                 monthlyPayments.prevMonthPaid = {};
             }
-            if (!monthlyPayments.prevMonthPaid[month]) {
-                monthlyPayments.prevMonthPaid[month] = {};
+            if (!monthlyPayments.prevMonthPaid[prevMonthYM]) {
+                monthlyPayments.prevMonthPaid[prevMonthYM] = {};
             }
 
-            monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
+            monthlyPayments.prevMonthPaid[prevMonthYM][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             renderPreviousMonthSummary();
@@ -1197,7 +1202,7 @@
                     hasPrevBalances = true;
                 }
 
-                const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
+                const prevPaidVal = monthlyPayments.prevMonthPaid?.[prevMonth]?.[shareUnit];
                 
                 let customPaidAmount = 0;
                 if (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005) {
@@ -1220,12 +1225,12 @@
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">$0.00 (Paid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Mark Unpaid / Update</button>` : `Paid ✓`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-settled" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
-                    const displayAmtStr = rawPrevNet < 0 ? `-$${Math.abs(rawPrevNet).toFixed(2)}` : `$${remainingPastDue.toFixed(2)}`;
+                    const displayAmtStr = `-$${remainingPastDue.toFixed(2)}`;
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">${displayAmtStr} (Unpaid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Mark Paid</button>` : `Unpaid`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>` : `Unpaid`;
                 }
 
                 const row = document.createElement('tr');
