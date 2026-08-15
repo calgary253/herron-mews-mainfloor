@@ -628,7 +628,23 @@
             const hTarget = householdSharePerUnit * weightMap[shareUnit];
             const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
             const totalTarget = hTarget + uTarget;
-            return paid - totalTarget;
+            const netBeforePayment = paid - totalTarget;
+
+            if (netBeforePayment < -0.005) {
+                const totalOwed = Math.abs(netBeforePayment);
+                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[targetMonthYM]?.[shareUnit];
+                
+                let customPaid = 0;
+                if (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005) {
+                    customPaid = totalOwed;
+                } else if (typeof prevPaidRecord === 'number' && prevPaidRecord > 0) {
+                    customPaid = prevPaidRecord;
+                }
+
+                const remainingOwed = Math.max(0, totalOwed - customPaid);
+                return -remainingOwed;
+            }
+            return netBeforePayment;
         }
 
         function renderPreviousMonthSummary() {
