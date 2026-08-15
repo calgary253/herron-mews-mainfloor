@@ -585,6 +585,47 @@
             return 0;
         }
 
+        function calculateMonthNetForShare(targetMonthYM, shareUnit) {
+            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
+            if (prevExpenses.length === 0) return 0;
+
+            const isAugust2026 = (targetMonthYM === '2026-08');
+            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
+            if (!activeShares.includes(shareUnit)) return 0;
+
+            let householdTotal = 0;
+            let shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareSpent = {};
+            activeShares.forEach(s => shareSpent[s] = 0);
+
+            prevExpenses.forEach(item => {
+                if (item.category === 'shaw') shawTotal += item.amount;
+                else if (item.category === 'enmax') enmaxTotal += item.amount;
+                else if (item.category === 'atco') atcoTotal += item.amount;
+                else {
+                    householdTotal += item.amount;
+                    const key = (item.paidBy || '').toLowerCase().trim();
+                    const sUnit = userToShareMap[key] || "Jigneshkumar";
+                    if (shareSpent[sUnit] !== undefined) shareSpent[sUnit] += item.amount;
+                }
+            });
+
+            const householdDivisor = isAugust2026 ? 3 : 5;
+            const utilityResidents = isAugust2026 ? 8 : 9;
+
+            const householdSharePerUnit = householdTotal / householdDivisor; 
+            const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
+            
+            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+
+            const paid = shareSpent[shareUnit] || 0;
+            const hTarget = householdSharePerUnit * weightMap[shareUnit];
+            const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
+            const totalTarget = hTarget + uTarget;
+            return paid - totalTarget;
+        }
+
         function renderPreviousMonthSummary() {
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
@@ -606,11 +647,13 @@
             }
 
             const cumulativePastDue = calculateMonthOwedForShare(prevMonthYM, userShareUnit);
+            const rawNet = calculateMonthNetForShare(prevMonthYM, userShareUnit);
             let bannerClass = "prev-month-banner";
             let messageHtml = '';
 
             if (cumulativePastDue > 0.005) {
-                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: You owe $${cumulativePastDue.toFixed(2)} for ${prevMonthLabel}.`;
+                const displayAmtStr = rawNet < 0 ? `-$${Math.abs(rawNet).toFixed(2)}` : `$${cumulativePastDue.toFixed(2)}`;
+                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: You owe <span style="color:#c0392b; font-weight:bold;">${displayAmtStr}</span> for ${prevMonthLabel} (payable to Jaimin & Ishani).`;
             } else {
                 bannerClass += " all-settled";
                 messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: $0.00 (Fully settled ✓)`;
@@ -900,6 +943,7 @@
 
             const prevMonth = getPreviousMonthString(selectedMonth);
             let prevMonthOwedMap = {};
+            let prevMonthRawNetMap = {};
 
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
             if (prevExpenses.length > 0) {
@@ -938,6 +982,7 @@
                     
                     const totalTarget = hTarget + uTarget;
                     const netBeforePayment = paid - totalTarget;
+                    prevMonthRawNetMap[shareUnit] = netBeforePayment;
 
                     if (netBeforePayment < -0.005) {
                         const totalOwed = Math.abs(netBeforePayment);
@@ -1147,6 +1192,7 @@
 
             upstairsShares.forEach(shareUnit => {
                 const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
+                const rawPrevNet = prevMonthRawNetMap[shareUnit] || 0;
                 if (prevOwedAmt > 0.005) {
                     hasPrevBalances = true;
                 }
@@ -1173,11 +1219,12 @@
                     actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
+                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">$0.00 (Paid)</span>`;
                     actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter ($${remainingPastDue.toFixed(2)})</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
-                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
+                    const displayAmtStr = rawPrevNet < 0 ? `-$${Math.abs(rawPrevNet).toFixed(2)}` : `$${remainingPastDue.toFixed(2)}`;
+                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">${displayAmtStr} (Unpaid)</span>`;
                 }
 
                 if (isAdmin && prevOwedAmt > 0.005 && remainingPastDue > 0.005) {
