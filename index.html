@@ -1220,15 +1220,12 @@
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">$0.00 (Paid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter ($${remainingPastDue.toFixed(2)})</button>` : `Paid ✓`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Mark Unpaid / Update</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     const displayAmtStr = rawPrevNet < 0 ? `-$${Math.abs(rawPrevNet).toFixed(2)}` : `$${remainingPastDue.toFixed(2)}`;
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">${displayAmtStr} (Unpaid)</span>`;
-                }
-
-                if (isAdmin && prevOwedAmt > 0.005 && remainingPastDue > 0.005) {
-                    actionHtml = `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter ($${remainingPastDue.toFixed(2)})</button>`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Mark Paid</button>` : `Unpaid`;
                 }
 
                 const row = document.createElement('tr');
