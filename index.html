@@ -92,7 +92,7 @@
         .btn-unpaid:hover { background-color: #c0392b; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
-        .btn-admin-action { background-color: #2980b9; padding: 8px 14px; font-size: 13px; border-radius: 4px; }
+        .btn-admin-action { background-color: #2980b9; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
         .btn-admin-action:hover { background-color: #1f6391; }
 
         /* Previous Month Summary Banner */
@@ -337,7 +337,7 @@
                 <!-- Direct transfer steps populate here -->
             </ul>
 
-            <h3>3. Individual Balances & Settlement Summary</h3>
+            <h3>3. Individual Balances & Settlement Summary (Current Month Only)</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -357,7 +357,7 @@
 
             <br>
 
-            <h3 id="prev-month-section-title">4. Previous Month Unpaid Balances (July 2026)</h3>
+            <h3 id="prev-month-section-title">4. Previous Month Unpaid Balances</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -585,92 +585,6 @@
             return 0;
         }
 
-        function getCreditorForShareInMonth(targetMonthYM, shareUnit) {
-            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
-            if (monthExpenses.length === 0) return null;
-
-            const isAugust2026 = (targetMonthYM === '2026-08');
-            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-            if (!activeShares.includes(shareUnit)) return null;
-
-            let householdTotal = 0;
-            let shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
-            const shareHouseholdSpent = {};
-            const shareUtilitySpent = {};
-            activeShares.forEach(s => {
-                shareHouseholdSpent[s] = 0;
-                shareUtilitySpent[s] = 0;
-            });
-
-            monthExpenses.forEach(item => {
-                const key = (item.paidBy || '').toLowerCase().trim();
-                const sUnit = userToShareMap[key];
-                if (!sUnit || !activeShares.includes(sUnit)) return;
-
-                if (item.category === 'shaw') {
-                    shawTotal += item.amount;
-                    shareUtilitySpent[sUnit] += item.amount;
-                } else if (item.category === 'enmax') {
-                    enmaxTotal += item.amount;
-                    shareUtilitySpent[sUnit] += item.amount;
-                } else if (item.category === 'atco') {
-                    atcoTotal += item.amount;
-                    shareUtilitySpent[sUnit] += item.amount;
-                } else {
-                    householdTotal += item.amount;
-                    shareHouseholdSpent[sUnit] += item.amount;
-                }
-            });
-
-            const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 9;
-
-            const householdSharePerUnit = householdTotal / householdDivisor; 
-            const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
-            
-            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-
-            let debtors = [];
-            let creditors = [];
-
-            activeShares.forEach(s => {
-                const paid = (shareHouseholdSpent[s] || 0) + (shareUtilitySpent[s] || 0);
-                const hTarget = householdSharePerUnit * weightMap[s];
-                const uTarget = utilitySharePerResident * residentCountMap[s];
-                const target = hTarget + uTarget;
-                const net = paid - target;
-
-                if (net >= 0.005) {
-                    creditors.push({ person: s, amount: net });
-                } else if (net <= -0.005) {
-                    debtors.push({ person: s, amount: Math.abs(net) });
-                }
-            });
-
-            let dIndex = 0, cIndex = 0;
-            let tempDebtors = JSON.parse(JSON.stringify(debtors));
-            let tempCreditors = JSON.parse(JSON.stringify(creditors));
-
-            while (dIndex < tempDebtors.length && cIndex < tempCreditors.length) {
-                let debtor = tempDebtors[dIndex];
-                let creditor = tempCreditors[cIndex];
-                let transferAmount = Math.min(debtor.amount, creditor.amount);
-
-                if (debtor.person === shareUnit) {
-                    return creditor.person;
-                }
-
-                debtor.amount -= transferAmount;
-                creditor.amount -= transferAmount;
-
-                if (debtor.amount < 0.01) dIndex++;
-                if (creditor.amount < 0.01) cIndex++;
-            }
-
-            return null;
-        }
-
         function renderPreviousMonthSummary() {
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
@@ -691,39 +605,20 @@
                 return;
             }
 
-            let cumulativePastDue = 0;
-            let lastCreditorFound = null;
-            let checkMonth = prevMonthYM;
-            let iterationCount = 0;
-            while (iterationCount < 24) {
-                const dueForMonth = calculateMonthOwedForShare(checkMonth, userShareUnit);
-                if (dueForMonth > 0) {
-                    cumulativePastDue += dueForMonth;
-                    if (!lastCreditorFound) {
-                        lastCreditorFound = getCreditorForShareInMonth(checkMonth, userShareUnit);
-                    }
-                }
-                const nextCheck = getPreviousMonthString(checkMonth);
-                if (nextCheck === checkMonth) break;
-                checkMonth = nextCheck;
-                iterationCount++;
-            }
-
-            const combinedProfileTitle = userShareUnit;
+            const cumulativePastDue = calculateMonthOwedForShare(prevMonthYM, userShareUnit);
             let bannerClass = "prev-month-banner";
             let messageHtml = '';
 
             if (cumulativePastDue > 0.005) {
-                const payeeName = lastCreditorFound ? lastCreditorFound : "Jaimin & Ishani";
-                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past months.`;
+                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: You owe $${cumulativePastDue.toFixed(2)} for ${prevMonthLabel}.`;
             } else {
                 bannerClass += " all-settled";
-                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: $0.00 (all past months fully settled ✓)`;
+                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: $0.00 (Fully settled ✓)`;
             }
 
             container.innerHTML = `
                 <div class="${bannerClass}">
-                    <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
+                    <h3>My Summary Cumulative Standing (Prior Month Carried Over)</h3>
                     <p>${messageHtml}</p>
                 </div>
             `;
@@ -1237,7 +1132,7 @@
                 settlementBody.appendChild(row);
             });
 
-            // Section 4: Previous Month Unpaid Balances Tracker (July 2026)
+            // Section 4: Previous Month Unpaid Balances Tracker (Strictly Last Month)
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
@@ -1279,14 +1174,14 @@
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">enter amount ($)</button>` : `Paid ✓`;
+                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter ($${remainingPastDue.toFixed(2)})</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
                 }
 
                 if (isAdmin && prevOwedAmt > 0.005 && remainingPastDue > 0.005) {
-                    actionHtml = `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">enter amount ($)</button>`;
+                    actionHtml = `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter ($${remainingPastDue.toFixed(2)})</button>`;
                 }
 
                 const row = document.createElement('tr');
