@@ -64,7 +64,6 @@ if "expenses" not in st.session_state or "monthly_payments" not in st.session_st
   st.session_state.monthly_payments = mp
 
 # --- URL PARAMETER AUTHENTICATION ---
-# Example: http://localhost:8501/?user=Jigneshkumar&role=admin
 query_params = st.query_params
 current_user = query_params.get("user", "Jigneshkumar")
 user_role = query_params.get("role", "admin")
@@ -75,7 +74,6 @@ st.sidebar.info(
     f"👤 Logged in as: **{current_user.capitalize()}**\n\n🛡️ Role: **{user_role.upper()}**"
 )
 
-# Populate available months dynamically from expenses + current month
 all_months = sorted(
     list(
         set(
@@ -167,9 +165,12 @@ col3.metric("Total Records in Month", len(month_expenses))
 st.divider()
 
 # --- TABS FOR ORGANIZATION ---
-tab1, tab2, tab3 = st.tabs(
-    ["📊 Settlement Summary", "➕ Add Expense", "📝 Manage Expenses"]
-)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📊 Settlement Summary",
+    "📑 End-of-Month Report",
+    "➕ Add Expense",
+    "📝 Manage Expenses",
+])
 
 with tab1:
   st.subheader(f"Individual Balances & Net Standing ({selected_month})")
@@ -201,8 +202,87 @@ with tab1:
   st.dataframe(pd.DataFrame(summary_data), use_container_width=True)
 
 with tab2:
+  st.subheader(f"📑 End-of-Month Settlement Report ({selected_month})")
+  st.markdown(
+      "Review the breakdown below and copy the generated message to share"
+      " with the household."
+  )
+
+  report_lines = [
+      f"🏠 *253 Herron Mews Expense Report - {selected_month}* 🏠",
+      f"• Total Household Expenses: ${household_total:.2f}",
+      f"• Total Utilities: ${shaw_total + enmax_total + atco_total:.2f}",
+      "",
+      "*Individual Standings:*",
+  ]
+
+  # Check previous month balance tracking if stored in monthlyPayments
+  prev_month_records = st.session_state.monthly_payments.get(
+      "prevMonthPaid", {}
+  )
+
+  for share_unit in upstairs_shares:
+    h_spent = share_household_spent[share_unit]
+    u_spent = share_utility_spent[share_unit]
+    paid = h_spent + u_spent
+    target = (base_household_share * resident_count_map[share_unit]) + (
+        utility_share_per_resident * resident_count_map[share_unit]
+    )
+    net = paid - target
+
+    if net >= 0:
+      line = f"✅ *{share_unit}*: Paid ${paid:.2f} | Target ${target:.2f} -> **Gets back ${net:.2f}**"
+    else:
+      line = f"⚠️ *{share_unit}*: Paid ${paid:.2f} | Target ${target:.2f} -> **Owes ${abs(net):.2f}**"
+    report_lines.append(line)
+
+  report_lines.append("")
+  report_lines.append(
+      "Please settle balances accordingly. Thank you! 🙏"
+  )
+
+  full_report_text = "\n".join(report_lines)
+
+  st.text_area(
+      "Copy this report to send via WhatsApp/Text:",
+      full_report_text,
+      height=200,
+  )
+
+  # Track previous month payment status section
+  st.divider()
+  st.subheader("📌 Past Month Owing & Settlement Tracking")
+  st.markdown(
+      "Mark whether previous months' deficits have been cleared or paid out:"
+  )
+
+  col_m1, col_m2 = st.columns(2)
+  with col_m1:
+    tracking_month = st.selectbox(
+        "Select Month to Track", all_months, key="track_m"
+    )
+  with col_m2:
+    tracked_unit = st.selectbox(
+        "Select Household Unit", upstairs_shares, key="track_u"
+    )
+
+  is_cleared = st.checkbox("Mark as Settled / Paid", value=False)
+  if st.button("Update Settlement Status"):
+    if "prevMonthPaid" not in st.session_state.monthly_payments:
+      st.session_state.monthly_payments["prevMonthPaid"] = {}
+
+    key_str = f"{tracking_month}_{tracked_unit}"
+    st.session_state.monthly_payments["prevMonthPaid"][key_str] = is_cleared
+    if save_data_to_cloud(
+        st.session_state.expenses, st.session_state.monthly_payments
+    ):
+      st.success(
+          f"Updated payment status for {tracked_unit} in {tracking_month}!"
+      )
+      st.rerun()
+
+with tab3:
   st.subheader("Add New Household Expense")
-  # Pre-fill 'Paid By' with the user from URL if they match
   default_payer_index = 0
   payers = ["Jigneshkumar", "Jaimin", "Viru", "Ishani", "Drashti"]
   for idx, p in enumerate(payers):
@@ -239,7 +319,7 @@ with tab2:
         st.success("Expense successfully added and synced to cloud bin!")
         st.rerun()
 
-with tab3:
+with tab4:
   st.subheader("Manage & Delete Logged Expenses")
   if user_role.lower() != "admin":
     st.warning("⚠️ You are in read-only mode. Admin rights required to delete.")
