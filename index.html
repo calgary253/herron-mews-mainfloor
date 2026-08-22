@@ -79,6 +79,9 @@
         .btn-admin-settled { background-color: #27ae60; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
         .btn-admin-settled:hover { background-color: #219150; }
 
+        .btn-admin-undo { background-color: #7f8c8d; padding: 8px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; margin-left: 6px; }
+        .btn-admin-undo:hover { background-color: #616a6b; }
+
         .prev-month-banner {
             background: #fff5f5;
             border-left: 5px solid #e74c3c;
@@ -680,6 +683,18 @@
             await saveExpensesToCloud();
         }
 
+        async function undoPrevMonthPayment(prevMonthYM, shareUnit) {
+            if (!isJaiminAdmin) return;
+            if (confirm(`Undo/Clear previous month payment record for ${shareUnit} for ${prevMonthYM}?`)) {
+                if (monthlyPayments.prevMonthPaid && monthlyPayments.prevMonthPaid[prevMonthYM]) {
+                    delete monthlyPayments.prevMonthPaid[prevMonthYM][shareUnit];
+                }
+                calculateSettlement();
+                renderPreviousMonthSummary();
+                await saveExpensesToCloud();
+            }
+        }
+
         function calculateSettlement() {
             const isAugust2026 = (selectedMonth === '2026-08');
             const upstairsShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
@@ -876,7 +891,13 @@
                 
                 let actionHtml = '';
                 if (isJaiminAdmin) {
-                    actionHtml = `<button class="${prevOwedAmt <= 0.005 || remainingPastDue <= 0.005 ? 'btn-admin-settled' : 'btn-admin-action'}" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>`;
+                    let hasCustomPayment = (monthlyPayments.prevMonthPaid?.[prevMonth]?.[shareUnit] !== undefined && monthlyPayments.prevMonthPaid[prevMonth][shareUnit] > 0);
+                    let enterBtnClass = (prevOwedAmt <= 0.005 || remainingPastDue <= 0.005) ? 'btn-admin-settled' : 'btn-admin-action';
+                    
+                    actionHtml = `<button class="${enterBtnClass}" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>`;
+                    if (hasCustomPayment) {
+                        actionHtml += `<button class="btn-admin-undo" onclick="undoPrevMonthPayment('${prevMonth}', '${shareUnit}')">Undo</button>`;
+                    }
                 } else {
                     actionHtml = prevOwedAmt <= 0.005 ? 'Settled ✓' : (remainingPastDue <= 0.005 ? 'Settled ✓' : 'Unpaid');
                 }
