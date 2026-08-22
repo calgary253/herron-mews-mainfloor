@@ -92,13 +92,6 @@
         .btn-unpaid:hover { background-color: #c0392b; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
-        
-        /* Updated Button Styles for Previous Month Unpaid Balances */
-        .btn-admin-action { background-color: #e74c3c; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
-        .btn-admin-action:hover { background-color: #c0392b; }
-        
-        .btn-admin-settled { background-color: #27ae60; padding: 8px 14px; font-size: 13px; border-radius: 4px; font-weight: bold; color: white; }
-        .btn-admin-settled:hover { background-color: #219150; }
 
         /* Previous Month Summary Banner */
         .prev-month-banner {
@@ -319,12 +312,12 @@
                 <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/9th Total):</strong> $<span id="utility-total">0.00</span></p>
             </div>
 
-            <h3>1. Spending Breakdown by Person / Unit</h3>
+            <h3>1. Spending Breakdown by Share Unit</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Person / Unit</th>
+                            <th>Share Unit</th>
                             <th>3 Way Split Spent</th>
                             <th>Utility Spent</th>
                         </tr>
@@ -342,12 +335,12 @@
                 <!-- Direct transfer steps populate here -->
             </ul>
 
-            <h3>3. Individual Balances & Settlement Summary (Current Month Only)</h3>
+            <h3>3. Individual Balances & Settlement Summary</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Person / Unit</th>
+                            <th>Share Unit</th>
                             <th>Total Paid</th>
                             <th>Target Share</th>
                             <th>Net Balance</th>
@@ -362,15 +355,15 @@
 
             <br>
 
-            <h3 id="prev-month-section-title">4. Previous Month Unpaid Balances</h3>
+            <h3>4. Previous Month Unpaid Balances</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Person / Unit</th>
-                            <th>Unpaid Balance</th>
+                            <th>Share Unit</th>
+                            <th>Unpaid Balance from Last Month</th>
                             <th>Status</th>
-                            <th>Admin Action</th>
+                            <th>Enter Payment ($)</th>
                         </tr>
                     </thead>
                     <tbody id="prev-month-balances-list">
@@ -590,28 +583,40 @@
             return 0;
         }
 
-        function calculateMonthNetForShare(targetMonthYM, shareUnit) {
-            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
-            if (prevExpenses.length === 0) return 0;
+        function getCreditorForShareInMonth(targetMonthYM, shareUnit) {
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
+            if (monthExpenses.length === 0) return null;
 
             const isAugust2026 = (targetMonthYM === '2026-08');
             const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-            if (!activeShares.includes(shareUnit)) return 0;
+            if (!activeShares.includes(shareUnit)) return null;
 
             let householdTotal = 0;
             let shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
-            const shareSpent = {};
-            activeShares.forEach(s => shareSpent[s] = 0);
+            const shareHouseholdSpent = {};
+            const shareUtilitySpent = {};
+            activeShares.forEach(s => {
+                shareHouseholdSpent[s] = 0;
+                shareUtilitySpent[s] = 0;
+            });
 
-            prevExpenses.forEach(item => {
-                if (item.category === 'shaw') shawTotal += item.amount;
-                else if (item.category === 'enmax') enmaxTotal += item.amount;
-                else if (item.category === 'atco') atcoTotal += item.amount;
-                else {
+            monthExpenses.forEach(item => {
+                const key = (item.paidBy || '').toLowerCase().trim();
+                const sUnit = userToShareMap[key];
+                if (!sUnit || !activeShares.includes(sUnit)) return;
+
+                if (item.category === 'shaw') {
+                    shawTotal += item.amount;
+                    shareUtilitySpent[sUnit] += item.amount;
+                } else if (item.category === 'enmax') {
+                    enmaxTotal += item.amount;
+                    shareUtilitySpent[sUnit] += item.amount;
+                } else if (item.category === 'atco') {
+                    atcoTotal += item.amount;
+                    shareUtilitySpent[sUnit] += item.amount;
+                } else {
                     householdTotal += item.amount;
-                    const key = (item.paidBy || '').toLowerCase().trim();
-                    const sUnit = userToShareMap[key] || "Jigneshkumar";
-                    if (shareSpent[sUnit] !== undefined) shareSpent[sUnit] += item.amount;
+                    shareHouseholdSpent[sUnit] += item.amount;
                 }
             });
 
@@ -624,27 +629,44 @@
             const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
             const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
 
-            const paid = shareSpent[shareUnit] || 0;
-            const hTarget = householdSharePerUnit * weightMap[shareUnit];
-            const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
-            const totalTarget = hTarget + uTarget;
-            const netBeforePayment = paid - totalTarget;
+            let debtors = [];
+            let creditors = [];
 
-            if (netBeforePayment < -0.005) {
-                const totalOwed = Math.abs(netBeforePayment);
-                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[targetMonthYM]?.[shareUnit];
-                
-                let customPaid = 0;
-                if (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005) {
-                    customPaid = totalOwed;
-                } else if (typeof prevPaidRecord === 'number' && prevPaidRecord > 0) {
-                    customPaid = prevPaidRecord;
+            activeShares.forEach(s => {
+                const paid = (shareHouseholdSpent[s] || 0) + (shareUtilitySpent[s] || 0);
+                const hTarget = householdSharePerUnit * weightMap[s];
+                const uTarget = utilitySharePerResident * residentCountMap[s];
+                const target = hTarget + uTarget;
+                const net = paid - target;
+
+                if (net >= 0.005) {
+                    creditors.push({ person: s, amount: net });
+                } else if (net <= -0.005) {
+                    debtors.push({ person: s, amount: Math.abs(net) });
+                }
+            });
+
+            let dIndex = 0, cIndex = 0;
+            let tempDebtors = JSON.parse(JSON.stringify(debtors));
+            let tempCreditors = JSON.parse(JSON.stringify(creditors));
+
+            while (dIndex < tempDebtors.length && cIndex < tempCreditors.length) {
+                let debtor = tempDebtors[dIndex];
+                let creditor = tempCreditors[cIndex];
+                let transferAmount = Math.min(debtor.amount, creditor.amount);
+
+                if (debtor.person === shareUnit) {
+                    return creditor.person;
                 }
 
-                const remainingOwed = Math.max(0, totalOwed - customPaid);
-                return -remainingOwed;
+                debtor.amount -= transferAmount;
+                creditor.amount -= transferAmount;
+
+                if (debtor.amount < 0.01) dIndex++;
+                if (creditor.amount < 0.01) cIndex++;
             }
-            return netBeforePayment;
+
+            return null;
         }
 
         function renderPreviousMonthSummary() {
@@ -667,22 +689,39 @@
                 return;
             }
 
-            const cumulativePastDue = calculateMonthOwedForShare(prevMonthYM, userShareUnit);
-            const rawNet = calculateMonthNetForShare(prevMonthYM, userShareUnit);
+            let cumulativePastDue = 0;
+            let lastCreditorFound = null;
+            let checkMonth = prevMonthYM;
+            let iterationCount = 0;
+            while (iterationCount < 24) {
+                const dueForMonth = calculateMonthOwedForShare(checkMonth, userShareUnit);
+                if (dueForMonth > 0) {
+                    cumulativePastDue += dueForMonth;
+                    if (!lastCreditorFound) {
+                        lastCreditorFound = getCreditorForShareInMonth(checkMonth, userShareUnit);
+                    }
+                }
+                const nextCheck = getPreviousMonthString(checkMonth);
+                if (nextCheck === checkMonth) break;
+                checkMonth = nextCheck;
+                iterationCount++;
+            }
+
+            const combinedProfileTitle = userShareUnit;
             let bannerClass = "prev-month-banner";
             let messageHtml = '';
 
             if (cumulativePastDue > 0.005) {
-                const displayAmtStr = rawNet < 0 ? `-$${Math.abs(rawNet).toFixed(2)}` : `$${cumulativePastDue.toFixed(2)}`;
-                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: You owe <span style="color:#c0392b; font-weight:bold;">${displayAmtStr}</span> for ${prevMonthLabel} (payable to Jaimin & Ishani).`;
+                const payeeName = lastCreditorFound ? lastCreditorFound : "Jaimin & Ishani";
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past months.`;
             } else {
                 bannerClass += " all-settled";
-                messageHtml = `⚠️ <strong>Prior Month Unpaid Balance (${prevMonthLabel})</strong>: $0.00 (Fully settled ✓)`;
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: $0.00 (all past months fully settled ✓)`;
             }
 
             container.innerHTML = `
                 <div class="${bannerClass}">
-                    <h3>My Summary Cumulative Standing (Prior Month Carried Over)</h3>
+                    <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
                     <p>${messageHtml}</p>
                 </div>
             `;
@@ -926,16 +965,12 @@
             }
         }
 
-        async function promptPrevMonthPayment(prevMonthYM, shareUnit, totalOwed) {
+        async function onPrevMonthPaymentInput(month, shareUnit, totalOwed, inputEl) {
             if (!isAdmin) return;
 
-            const currentPaid = monthlyPayments.prevMonthPaid?.[prevMonthYM]?.[shareUnit] || 0;
-            const valStr = prompt(`Enter Amount ($) received for ${shareUnit} for ${prevMonthYM} (Total Outstanding: $${totalOwed.toFixed(2)}):`, currentPaid > 0 ? currentPaid.toFixed(2) : '');
-            
-            if (valStr === null) return;
-
+            const valStr = inputEl.value.trim();
             let newPaidAmount = 0;
-            if (valStr.trim() !== "") {
+            if (valStr !== "") {
                 const parsed = parseFloat(valStr);
                 if (isNaN(parsed) || parsed < 0) {
                     alert("Please enter a valid positive amount.");
@@ -947,11 +982,11 @@
             if (!monthlyPayments.prevMonthPaid) {
                 monthlyPayments.prevMonthPaid = {};
             }
-            if (!monthlyPayments.prevMonthPaid[prevMonthYM]) {
-                monthlyPayments.prevMonthPaid[prevMonthYM] = {};
+            if (!monthlyPayments.prevMonthPaid[month]) {
+                monthlyPayments.prevMonthPaid[month] = {};
             }
 
-            monthlyPayments.prevMonthPaid[prevMonthYM][shareUnit] = newPaidAmount;
+            monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             renderPreviousMonthSummary();
@@ -964,7 +999,6 @@
 
             const prevMonth = getPreviousMonthString(selectedMonth);
             let prevMonthOwedMap = {};
-            let prevMonthRawNetMap = {};
 
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
             if (prevExpenses.length > 0) {
@@ -1003,7 +1037,6 @@
                     
                     const totalTarget = hTarget + uTarget;
                     const netBeforePayment = paid - totalTarget;
-                    prevMonthRawNetMap[shareUnit] = netBeforePayment;
 
                     if (netBeforePayment < -0.005) {
                         const totalOwed = Math.abs(netBeforePayment);
@@ -1198,27 +1231,38 @@
                 settlementBody.appendChild(row);
             });
 
-            // Section 4: Previous Month Unpaid Balances Tracker (Strictly Last Month)
+            // Section 4: Previous Month Unpaid Balances Tracker
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
-            const prevMonthSectionTitle = document.getElementById('prev-month-section-title');
-            if (prevMonthSectionTitle) {
-                const [pYear, pMonth] = prevMonth.split('-');
-                const prevMonthFormattedName = new Date(pYear, pMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                prevMonthSectionTitle.innerText = `4. Previous Month Unpaid Balances (${prevMonthFormattedName})`;
+            const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
+            const prevMonthHeader = prevMonthCard.previousElementSibling; 
+            if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
+                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${prevMonth})`;
+            }
+            
+            const tableParent = prevBalancesBody.closest('table');
+            if (tableParent) {
+                const theadRow = tableParent.querySelector('thead tr');
+                if (theadRow) {
+                    theadRow.innerHTML = `
+                        <th>Share Unit</th>
+                        <th>Unpaid Balance from Last Month</th>
+                        <th>Status</th>
+                        <th>Enter Payment ($)</th>
+                    `;
+                }
             }
 
             let hasPrevBalances = false;
 
             upstairsShares.forEach(shareUnit => {
                 const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
-                const rawPrevNet = prevMonthRawNetMap[shareUnit] || 0;
                 if (prevOwedAmt > 0.005) {
                     hasPrevBalances = true;
                 }
 
-                const prevPaidVal = monthlyPayments.prevMonthPaid?.[prevMonth]?.[shareUnit];
+                const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
                 
                 let customPaidAmount = 0;
                 if (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005) {
@@ -1237,16 +1281,24 @@
                 if (prevOwedAmt <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>` : `Settled ✓`;
+                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">$0.00 (Paid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-settled" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>` : `Paid ✓`;
+                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
+                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
-                    const displayAmtStr = `-$${remainingPastDue.toFixed(2)}`;
-                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">${displayAmtStr} (Unpaid)</span>`;
-                    actionHtml = isAdmin ? `<button class="btn-admin-action" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>` : `Unpaid`;
+                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
+                }
+
+                if (isAdmin && prevOwedAmt > 0.005) {
+                    actionHtml = `
+                        <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
+                            value="${customPaidAmount > 0 ? customPaidAmount.toFixed(2) : ''}" 
+                            placeholder="Enter Payment ($${prevOwedAmt.toFixed(2)})" 
+                            onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
+                            style="width: 180px; padding: 6px; font-size: 13px;">
+                    `;
                 }
 
                 const row = document.createElement('tr');
