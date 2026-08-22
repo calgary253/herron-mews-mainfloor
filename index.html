@@ -327,6 +327,7 @@
 
         const adminUsers = ['jigneshkumar', 'jaimin', 'ishani', 'ishanibhabhi', 'jaimin & ishani'];
         const isAdmin = (adminUsers.includes(normalizedKey) && currentRole === 'admin');
+        const isJaiminAdmin = (normalizedKey === 'jaimin' && currentRole === 'admin');
 
         if (!rawUser || !userToShareMap[normalizedKey]) {
             document.getElementById('error-screen').style.display = 'block';
@@ -501,7 +502,6 @@
             const monthSet = new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : ''));
             monthSet.add(currentYM);
             
-            // Generate months starting from July 2026 onwards up to the current active month
             let startYear = 2026, startMonth = 7;
             let [currYear, currMonth] = currentYM.split('-').map(Number);
             
@@ -664,7 +664,7 @@
         }
 
         async function promptPrevMonthPayment(prevMonthYM, shareUnit, totalOwed) {
-            if (!isAdmin) return;
+            if (!isJaiminAdmin) return;
             const currentPaid = monthlyPayments.prevMonthPaid?.[prevMonthYM]?.[shareUnit] || 0;
             const valStr = prompt(`Enter Amount ($) received for ${shareUnit} for ${prevMonthYM} (Total Outstanding: $${totalOwed.toFixed(2)}):`, currentPaid > 0 ? currentPaid.toFixed(2) : '');
             if (valStr === null) return;
@@ -873,7 +873,13 @@
 
                 let statusBadge = prevOwedAmt <= 0.005 ? '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>' : (remainingPastDue <= 0.005 ? '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>' : '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>');
                 let prevOwedDisplay = prevOwedAmt <= 0.005 ? '<span style="color: #27ae60;">$0.00</span>' : (remainingPastDue <= 0.005 ? '<span style="color: #27ae60;">$0.00 (Paid)</span>' : `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)}</span>`);
-                let actionHtml = isAdmin ? `<button class="${prevOwedAmt <= 0.005 || remainingPastDue <= 0.005 ? 'btn-admin-settled' : 'btn-admin-action'}" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>` : (prevOwedAmt <= 0.005 ? 'Settled ✓' : 'Unpaid');
+                
+                let actionHtml = '';
+                if (isJaiminAdmin) {
+                    actionHtml = `<button class="${prevOwedAmt <= 0.005 || remainingPastDue <= 0.005 ? 'btn-admin-settled' : 'btn-admin-action'}" onclick="promptPrevMonthPayment('${prevMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Amount</button>`;
+                } else {
+                    actionHtml = prevOwedAmt <= 0.005 ? 'Settled ✓' : (remainingPastDue <= 0.005 ? 'Settled ✓' : 'Unpaid');
+                }
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
