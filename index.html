@@ -504,6 +504,19 @@
             
             const monthSet = new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : ''));
             monthSet.add(currentYM);
+            
+            // Generate months starting from July 2026 onwards up to the current active month
+            let startYear = 2026, startMonth = 7;
+            let [currYear, currMonth] = currentYM.split('-').map(Number);
+            
+            let d = new Date(startYear, startMonth - 1, 1);
+            const now = new Date(currYear, currMonth - 1, 1);
+            
+            while (d <= now) {
+                monthSet.add(getLocalMonthString(d));
+                d.setMonth(d.getMonth() + 1);
+            }
+            
             monthSet.delete('');
 
             const sortedMonths = Array.from(monthSet).sort().reverse();
