@@ -63,9 +63,17 @@ if "expenses" not in st.session_state or "monthly_payments" not in st.session_st
   st.session_state.expenses = exps
   st.session_state.monthly_payments = mp
 
+# --- URL PARAMETER AUTHENTICATION ---
+# Example: http://localhost:8501/?user=Jigneshkumar&role=admin
+query_params = st.query_params
+current_user = query_params.get("user", "Jigneshkumar")
+user_role = query_params.get("role", "admin")
+
 # --- SIDEBAR UI ---
 st.sidebar.title("🏠 Navigation")
-current_user = st.sidebar.text_input("Current User", "Jigneshkumar")
+st.sidebar.info(
+    f"👤 Logged in as: **{current_user.capitalize()}**\n\n🛡️ Role: **{user_role.upper()}**"
+)
 
 # Populate available months dynamically from expenses + current month
 all_months = sorted(
@@ -81,9 +89,7 @@ if current_ym not in all_months:
   all_months.insert(0, current_ym)
 
 selected_month = st.sidebar.selectbox("📅 View Month (YYYY-MM)", all_months)
-
 st.sidebar.divider()
-st.sidebar.info(f"Logged in as: **{current_user}** (Admin)")
 
 # --- MAIN PAGE HEADER ---
 st.title("🏠 253 Herron Mews Main Floor Household Expense Tracker")
@@ -196,6 +202,14 @@ with tab1:
 
 with tab2:
   st.subheader("Add New Household Expense")
+  # Pre-fill 'Paid By' with the user from URL if they match
+  default_payer_index = 0
+  payers = ["Jigneshkumar", "Jaimin", "Viru", "Ishani", "Drashti"]
+  for idx, p in enumerate(payers):
+    if p.lower() in current_user.lower():
+      default_payer_index = idx
+      break
+
   with st.form("expense_form"):
     c1, c2 = st.columns(2)
     desc = c1.text_input("Description / Item Name")
@@ -205,9 +219,7 @@ with tab2:
     category = c3.selectbox(
         "Category", ["Groceries", "Household", "shaw", "enmax", "atco", "Other"]
     )
-    paid_by = c4.selectbox(
-        "Paid By", ["Jigneshkumar", "Jaimin", "Viru", "Ishani", "Drashti"]
-    )
+    paid_by = c4.selectbox("Paid By", payers, index=default_payer_index)
     exp_date = c5.date_input("Expense Date", datetime.now())
 
     submitted = st.form_submit_button("Save Expense", use_container_width=True)
@@ -229,21 +241,24 @@ with tab2:
 
 with tab3:
   st.subheader("Manage & Delete Logged Expenses")
-  if st.session_state.expenses:
-    exp_df = pd.DataFrame(st.session_state.expenses)
-    st.dataframe(exp_df, use_container_width=True)
-
-    del_id = st.text_input(
-        "Enter the Expense ID to delete (copy from table above):"
-    )
-    if st.button("Delete Expense Record", type="primary"):
-      st.session_state.expenses = [
-          e for e in st.session_state.expenses if str(e.get("id")) != del_id
-      ]
-      if save_data_to_cloud(
-          st.session_state.expenses, st.session_state.monthly_payments
-      ):
-        st.success("Expense successfully deleted from cloud!")
-        st.rerun()
+  if user_role.lower() != "admin":
+    st.warning("⚠️ You are in read-only mode. Admin rights required to delete.")
   else:
-    st.info("No expense records found.")
+    if st.session_state.expenses:
+      exp_df = pd.DataFrame(st.session_state.expenses)
+      st.dataframe(exp_df, use_container_width=True)
+
+      del_id = st.text_input(
+          "Enter the Expense ID to delete (copy from table above):"
+      )
+      if st.button("Delete Expense Record", type="primary"):
+        st.session_state.expenses = [
+            e for e in st.session_state.expenses if str(e.get("id")) != del_id
+        ]
+        if save_data_to_cloud(
+            st.session_state.expenses, st.session_state.monthly_payments
+        ):
+          st.success("Expense successfully deleted from cloud!")
+          st.rerun()
+    else:
+      st.info("No expense records found.")
