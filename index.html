@@ -67,8 +67,6 @@
         .btn-calc:hover { background-color: #1f6391; }
         .btn-export { background-color: #16a085; }
         .btn-export:hover { background-color: #117864; }
-        .btn-nav-month { background-color: #34495e; padding: 6px 12px; }
-        .btn-nav-month:hover { background-color: #2c3e50; }
         .btn-clear { background-color: #e74c3c; float: right; }
         .btn-clear:hover { background-color: #c0392b; }
         .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
@@ -182,9 +180,7 @@
             <div class="filter-header">
                 <h2 id="log-title" style="margin: 0;">Logged Expenses (Current Month)</h2>
                 <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                    <button class="btn-nav-month" onclick="navigateMonth(-1)" title="Previous Month">◀ Prev</button>
-                    <select id="month-filter" onchange="onMonthFilterChange()" style="padding: 5px 10px; min-width: 140px;"></select>
-                    <button class="btn-nav-month" onclick="navigateMonth(1)" title="Next Month">Next ▶</button>
+                    <select id="month-filter" onchange="onMonthFilterChange()" style="padding: 5px 10px; min-width: 160px;"></select>
                     <button class="btn-export" onclick="exportToCSV()" title="Download CSV for Selected Month">Export CSV</button>
                 </div>
             </div>
@@ -536,19 +532,6 @@
             } else {
                 selectedMonth = currentYM;
                 dropdown.value = selectedMonth;
-            }
-        }
-
-        function navigateMonth(direction) {
-            const dropdown = document.getElementById('month-filter');
-            const options = Array.from(dropdown.options).map(o => o.value);
-            const currentIndex = options.indexOf(selectedMonth);
-            
-            let newIndex = currentIndex - direction; // because sorted descending (newest first)
-            if (newIndex >= 0 && newIndex < options.length) {
-                selectedMonth = options[newIndex];
-                dropdown.value = selectedMonth;
-                onMonthFilterChange();
             }
         }
 
