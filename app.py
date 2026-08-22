@@ -15,6 +15,38 @@ st.set_page_config(
     layout="wide",
 )
 
+# --- PROFESSIONAL UI STYLING (CSS) ---
+st.markdown(
+    """
+    <style>
+    /* Main container background & styling */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    /* Metric cards customization */
+    div[data-testid="stMetric"] {
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        padding: 15px 20px;
+        border-radius: 12px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    /* Section headers */
+    h3 {
+        color: #1f2937;
+        font-weight: 600;
+        margin-top: 1rem;
+    }
+    /* Success / Info banners */
+    .stAlert {
+        border-radius: 10px;
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
+
 USER_TO_SHARE_MAP = {
     "jigneshkumar": "Jigneshkumar",
     "jaimin": "Jaimin & Ishani",
@@ -69,9 +101,15 @@ current_user = query_params.get("user", "Jigneshkumar")
 user_role = query_params.get("role", "admin")
 
 # --- SIDEBAR UI ---
-st.sidebar.title("🏠 Navigation")
-st.sidebar.info(
-    f"👤 Logged in as: **{current_user.capitalize()}**\n\n🛡️ Role: **{user_role.upper()}**"
+st.sidebar.title("🏠 Navigation Hub")
+st.sidebar.markdown(
+    f"""
+    <div style="background-color: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
+        👤 <b>User:</b> {current_user.capitalize()}<br>
+        🛡️ <b>Role:</b> {user_role.upper()}
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 all_months = sorted(
@@ -86,14 +124,16 @@ current_ym = datetime.now().strftime("%Y-%m")
 if current_ym not in all_months:
   all_months.insert(0, current_ym)
 
-selected_month = st.sidebar.selectbox("📅 View Month (YYYY-MM)", all_months)
+selected_month = st.sidebar.selectbox("📅 Select Billing Month", all_months)
 st.sidebar.divider()
+st.sidebar.caption("Herron Mews Housekeeping & Finance Cloud Tracker")
 
 # --- MAIN PAGE HEADER ---
-st.title("🏠 253 Herron Mews Main Floor Household Expense Tracker")
+st.title("🏠 253 Herron Mews Expense Portal")
 st.markdown(
-    f"Currently viewing settlement breakdown and expenses for **{selected_month}**."
+    f"Financial settlements and expense logs for **{selected_month}**."
 )
+st.divider()
 
 # --- CALCULATIONS FOR SELECTED MONTH ---
 is_august_2026 = selected_month == "2026-08"
@@ -153,16 +193,13 @@ resident_count_map = (
     else {"Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2}
 )
 
-# --- METRIC CARDS ---
+# --- MODERN METRIC CARDS ---
 col1, col2, col3 = st.columns(3)
-col1.metric("Total 3-Way Household Split", f"${household_total:.2f}")
-col2.metric(
-    "Total Utilities (Shaw + Enmax + Atco)",
-    f"${shaw_total + enmax_total + atco_total:.2f}",
-)
-col3.metric("Total Records in Month", len(month_expenses))
+col1.metric("🛒 Household Total", f"${household_total:.2f}")
+col2.metric("⚡ Utilities Total", f"${shaw_total + enmax_total + atco_total:.2f}")
+col3.metric("📝 Total Records", len(month_expenses))
 
-st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
 
 # --- TABS FOR ORGANIZATION ---
 tab1, tab2, tab3, tab4 = st.tabs([
@@ -187,9 +224,9 @@ with tab1:
 
     net = paid - target
     status_str = (
-        f"Gets back ${net:.2f}"
+        f"✅ Gets back ${net:.2f}"
         if net >= 0
-        else f"Owes ${abs(net):.2f} (Deficit)"
+        else f"⚠️ Owes ${abs(net):.2f} (Deficit)"
     )
 
     summary_data.append({
@@ -199,13 +236,15 @@ with tab1:
         "Net Status": status_str,
     })
 
-  st.dataframe(pd.DataFrame(summary_data), use_container_width=True)
+  st.dataframe(
+      pd.DataFrame(summary_data), use_container_width=True, hide_index=True
+  )
 
 with tab2:
   st.subheader(f"📑 End-of-Month Settlement Report ({selected_month})")
   st.markdown(
-      "Review the breakdown below and copy the generated message to share"
-      " with the household."
+      "Copy the formatted message below and post it to your household group"
+      " chat:"
   )
 
   report_lines = [
@@ -215,11 +254,6 @@ with tab2:
       "",
       "*Individual Standings:*",
   ]
-
-  # Check previous month balance tracking if stored in monthlyPayments
-  prev_month_records = st.session_state.monthly_payments.get(
-      "prevMonthPaid", {}
-  )
 
   for share_unit in upstairs_shares:
     h_spent = share_household_spent[share_unit]
@@ -242,47 +276,35 @@ with tab2:
   )
 
   full_report_text = "\n".join(report_lines)
+  st.text_area("WhatsApp / SMS Ready Format:", full_report_text, height=200)
 
-  st.text_area(
-      "Copy this report to send via WhatsApp/Text:",
-      full_report_text,
-      height=200,
-  )
-
-  # Track previous month payment status section
   st.divider()
-  st.subheader("📌 Past Month Owing & Settlement Tracking")
-  st.markdown(
-      "Mark whether previous months' deficits have been cleared or paid out:"
-  )
-
-  col_m1, col_m2 = st.columns(2)
-  with col_m1:
-    tracking_month = st.selectbox(
+  st.subheader("📌 Past Month Owing & Settlement Tracker")
+  with st.form("tracking_form"):
+    col_m1, col_m2 = st.columns(2)
+    tracking_month = col_m1.selectbox(
         "Select Month to Track", all_months, key="track_m"
     )
-  with col_m2:
-    tracked_unit = st.selectbox(
+    tracked_unit = col_m2.selectbox(
         "Select Household Unit", upstairs_shares, key="track_u"
     )
+    is_cleared = st.checkbox("Mark as Settled / Paid", value=False)
 
-  is_cleared = st.checkbox("Mark as Settled / Paid", value=False)
-  if st.button("Update Settlement Status"):
-    if "prevMonthPaid" not in st.session_state.monthly_payments:
-      st.session_state.monthly_payments["prevMonthPaid"] = {}
+    if st.form_submit_button("Update Settlement Status", use_container_width=True):
+      if "prevMonthPaid" not in st.session_state.monthly_payments:
+        st.session_state.monthly_payments["prevMonthPaid"] = {}
 
-    key_str = f"{tracking_month}_{tracked_unit}"
-    st.session_state.monthly_payments["prevMonthPaid"][key_str] = is_cleared
-    if save_data_to_cloud(
-        st.session_state.expenses, st.session_state.monthly_payments
-    ):
-      st.success(
-          f"Updated payment status for {tracked_unit} in {tracking_month}!"
-      )
-      st.rerun()
+      key_str = f"{tracking_month}_{tracked_unit}"
+      st.session_state.monthly_payments["prevMonthPaid"][key_str] = is_cleared
+      if save_data_to_cloud(
+          st.session_state.expenses, st.session_state.monthly_payments
+      ):
+        st.success(
+            f"Successfully updated payment status for {tracked_unit}!"
+        )
 
 with tab3:
-  st.subheader("Add New Household Expense")
+  st.subheader("➕ Add New Household Expense")
   default_payer_index = 0
   payers = ["Jigneshkumar", "Jaimin", "Viru", "Ishani", "Drashti"]
   for idx, p in enumerate(payers):
@@ -290,7 +312,7 @@ with tab3:
       default_payer_index = idx
       break
 
-  with st.form("expense_form"):
+  with st.form("expense_form", clear_on_submit=True):
     c1, c2 = st.columns(2)
     desc = c1.text_input("Description / Item Name")
     amount = c2.number_input("Amount ($)", min_value=0.0, step=0.01)
@@ -320,13 +342,15 @@ with tab3:
         st.rerun()
 
 with tab4:
-  st.subheader("Manage & Delete Logged Expenses")
+  st.subheader("📝 Manage & Delete Logged Expenses")
   if user_role.lower() != "admin":
     st.warning("⚠️ You are in read-only mode. Admin rights required to delete.")
   else:
     if st.session_state.expenses:
       exp_df = pd.DataFrame(st.session_state.expenses)
-      st.dataframe(exp_df, use_container_width=True)
+      st.dataframe(
+          exp_df, use_container_width=True, hide_index=True
+      )
 
       del_id = st.text_input(
           "Enter the Expense ID to delete (copy from table above):"
