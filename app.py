@@ -1,101 +1,597 @@
-from datetime import datetime
-from flask import Flask, jsonify, render_template, request
-import requests
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>253 Herron Mews Main Floor Household Expense Tracker</title>
 
-app = Flask(__name__)
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Main Floor Expenses">
+    <meta name="theme-color" content="#2c3e50">
 
-JSONBIN_BIN_ID = "6a640bd8da38895dfe8c7903"
-JSONBIN_ACCESS_KEY = (
-    "$2a$10$yjx9LlbvtXkus3Ny9sNE3eSaqE1czDp..yFA6lBccOwHmG.KM7Vp2"
-)
+    <!-- Embedded Web Application Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232c3e50'/><text x='50%' y='65%' font-size='50' text-anchor='middle' fill='%2327ae60'>$</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232c3e50'/><text x='50%' y='65%' font-size='50' text-anchor='middle' fill='%2327ae60'>$</text></svg>">
 
+    <style>
+        /* Global Reset & Base Styles */
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 30px auto;
+            padding: 20px;
+            background-color: #f4f6f8;
+            color: #333;
+        }
+        h1 { font-size: 1.8rem; color: #1a252f; margin-top: 0; }
+        h2 { font-size: 1.4rem; color: #1a252f; margin-top: 0; }
+        h3 { font-size: 1.1rem; color: #1a252f; margin-top: 0; }
+        .card {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+        }
+        .user-banner {
+            background: #2c3e50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .admin-badge { background-color: #f39c12; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .user-badge { background-color: #3498db; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; }
+        .form-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 15px; }
+        input, select, button { padding: 10px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; }
+        input, select { flex: 1; min-width: 120px; }
+        button { background-color: #27ae60; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #219150; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        .btn-calc { background-color: #2980b9; }
+        .btn-calc:hover { background-color: #1f6391; }
+        .btn-export { background-color: #16a085; }
+        .btn-export:hover { background-color: #117864; }
+        .btn-clear { background-color: #e74c3c; float: right; }
+        .btn-clear:hover { background-color: #c0392b; }
+        .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
+        .btn-delete { background-color: #e74c3c; }
 
-def fetch_data():
-  url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
-  headers = {"X-Access-Key": JSONBIN_ACCESS_KEY}
-  try:
-    response = requests.get(url, headers=headers)
-    response.raise_for_status()
-    data = response.json().get("record", {})
-    return data.get("expenses", []), data.get("basement_expenses", [])
-  except:
-    return [], []
+        .prev-month-banner {
+            background: #fff5f5;
+            border-left: 5px solid #e74c3c;
+            padding: 15px 20px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .prev-month-banner.all-settled {
+            background: #f0fdf4;
+            border-left-color: #27ae60;
+        }
+        .prev-month-banner h3 { margin-top: 0; color: #2c3e50; display: flex; align-items: center; gap: 8px; }
+        .prev-month-banner p { margin: 5px 0 0 0; font-size: 15px; line-height: 1.5; }
 
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 10px; }
+        table { width: 100%; border-collapse: collapse; word-break: normal; }
+        th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #ddd; white-space: nowrap; }
+        th { background-color: #f8f9fa; }
+        td.desc-cell { white-space: normal; min-width: 150px; }
 
-def save_data(expenses, basement_expenses):
-  url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
-  headers = {
-      "Content-Type": "application/json",
-      "X-Access-Key": JSONBIN_ACCESS_KEY,
-  }
-  try:
-    current_resp = requests.get(url, headers={"X-Access-Key": JSONBIN_ACCESS_KEY})
-    record = current_resp.json().get("record", {})
-  except:
-    record = {}
+        .payment-list { list-style: none; padding: 0; }
+        .payment-list li {
+            background: #eef7fe;
+            border-left: 4px solid #2980b9;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 0 4px 4px 0;
+            font-size: 15px;
+        }
 
-  record["expenses"] = expenses
-  record["basement_expenses"] = basement_expenses
+        .no-access { text-align: center; padding: 40px; background: #fff; border-radius: 8px; color: #e74c3c; }
+        .summary-box { background: #f8f9fa; border: 1px solid #e2e8f0; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
+        .sync-status { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
+        .filter-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .admin-filter-box { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    </style>
+</head>
+<body>
 
-  try:
-    response = requests.put(url, headers=headers, json=record)
-    response.raise_for_status()
-    return True
-  except:
-    return False
+    <div id="app-container" style="display: none;">
+        <div class="user-banner">
+            <div><strong>Welcome, <span id="display-name">User</span>!</strong></div>
+            <div id="role-badge"></div>
+        </div>
 
+        <div id="prev-month-summary-container"></div>
 
-@app.route("/")
-def index():
-  return render_template("index.html")
+        <h1>253 Herron Mews Main Floor Household Expense Tracker</h1>
 
+        <div class="card" id="submit-expense-card">
+            <h2>Submit New Expense</h2>
+            <form id="expense-form" class="form-group">
+                <input type="date" id="date" required>
+                <select id="category" required>
+                    <option value="household" selected>3 Way Split</option>
+                    <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
+                    <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
+                    <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
+                </select>
+                <input type="text" id="description" placeholder="Description (e.g. Groceries, Utility Bill)" required>
+                <input type="number" id="amount" placeholder="Amount ($)" step="0.01" min="0.01" required>
+                <button type="submit" id="submit-btn">Submit Expense</button>
+            </form>
+            <div id="sync-status" class="sync-status">Connecting to Cloud Data Sync...</div>
+        </div>
 
-@app.route("/api/data", methods=["GET"])
-def get_data():
-  expenses, basement_expenses = fetch_data()
-  return jsonify(
-      {"expenses": expenses, "basement_expenses": basement_expenses}
-  )
+        <div class="card">
+            <button id="clear-btn" class="btn-clear" onclick="clearAllData()" style="display: none;">Archive Selected Month</button>
+            
+            <div class="filter-header">
+                <h2 id="log-title" style="margin: 0;">Logged Expenses (Current Month)</h2>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label for="month-filter"><strong>View Month:</strong> </label>
+                    <select id="month-filter" onchange="onMonthFilterChange()" style="padding: 5px 10px; min-width: 150px;"></select>
+                    <button class="btn-export" onclick="exportToCSV()" title="Download CSV for Selected Month">Export CSV</button>
+                </div>
+            </div>
 
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Paid By</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th>Amount ($)</th>
+                            <th id="actions-col" style="display: none;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expense-list"></tbody>
+                </table>
+            </div>
+            
+            <div id="admin-month-filter" class="admin-filter-box" style="display: none;">
+                <button id="calc-btn" class="btn-calc" onclick="calculateSettlement()">Calculate Settlement for Selected Month</button>
+            </div>
+        </div>
 
-@app.route("/api/add", methods=["POST"])
-def add_expense():
-  req = request.json
-  unit = req.get("unit")  # 'main' or 'basement'
-  item = {
-      "id": str(int(datetime.now().timestamp() * 1000)),
-      "description": req.get("description"),
-      "amount": float(req.get("amount", 0)),
-      "category": req.get("category"),
-      "paidBy": req.get("paidBy"),
-      "date": req.get("date"),
-  }
+        <div class="card" id="report-card" style="display: none;">
+            <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
+            
+            <div class="summary-box">
+                <p><strong>Total 3 Way Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share unit)</em></p>
+                <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
+                <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span></p>
+                <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span></p>
+                <p>🔥 <strong>Atco Gas Total (Full Bill):</strong> $<span id="atco-total">0.00</span></p>
+            </div>
 
-  expenses, basement_expenses = fetch_data()
-  if unit == "basement":
-    basement_expenses.append(item)
-  else:
-    expenses.append(item)
+            <h3>1. Spending Breakdown by Share Unit</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Share Unit</th>
+                            <th>3 Way Split Spent</th>
+                            <th>Utility Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody id="spending-breakdown-list"></tbody>
+                </table>
+            </div>
 
-  success = save_data(expenses, basement_expenses)
-  return jsonify({"success": success})
+            <br>
 
+            <h3>2. Direct Transfers (Who owes whom)</h3>
+            <ul id="transfers-list" class="payment-list"></ul>
 
-@app.route("/api/delete", methods=["POST"])
-def delete_expense():
-  req = request.json
-  unit = req.get("unit")
-  exp_id = req.get("id")
+            <h3>3. Individual Balances & Settlement Summary</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Share Unit</th>
+                            <th>Total Paid</th>
+                            <th>Target Share</th>
+                            <th>Net Balance</th>
+                            <th>Status / Whom to Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody id="settlement-list"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-  expenses, basement_expenses = fetch_data()
-  if unit == "basement":
-    basement_expenses = [e for e in basement_expenses if str(e.get("id")) != exp_id]
-  else:
-    expenses = [e for e in expenses if str(e.get("id")) != exp_id]
+    <div id="error-screen" class="no-access card" style="display: none;">
+        <h2 id="error-title">Invalid Access Link</h2>
+        <p id="error-message">Please use your personalized link to access the expense tracker.</p>
+    </div>
 
-  success = save_data(expenses, basement_expenses)
-  return jsonify({"success": success})
+    <script>
+        const JSONBIN_BIN_ID = "6a640bd8da38895dfe8c7903"; 
+        const JSONBIN_ACCESS_KEY = "$2a$10$yjx9LlbvtXkus3Ny9sNE3eSaqE1czDp..yFA6lBccOwHmG.KM7Vp2";
 
+        // Mapped to 3 primary households: Jigneshkumar, Jaimin & Ishani, and Member 3 (adjust name if needed)
+        const userToShareMap = {
+            "jigneshkumar": "Jigneshkumar",
+            "jaimin": "Jaimin & Ishani",
+            "ishani": "Jaimin & Ishani",
+            "ishanibhabhi": "Jaimin & Ishani",
+            "jaimin & ishani": "Jaimin & Ishani",
+            "member3": "Household 3"
+        };
 
-if __name__ == "__main__":
-  app.run(host="0.0.0.0", port=5000)
+        const activeShares = ["Jigneshkumar", "Jaimin & Ishani", "Household 3"];
+        const weightMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 1, "Household 3": 1 };
+
+        let expenses = [];
+        let monthlyPayments = {}; 
+
+        function getLocalMonthString(date = new Date()) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}`;
+        }
+
+        function getPreviousMonthString(currentMonthStr) {
+            const [year, month] = currentMonthStr.split('-').map(Number);
+            const date = new Date(year, month - 2, 1);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function isMonthEnded(monthStr) {
+            const currentYM = getLocalMonthString(new Date());
+            return monthStr < currentYM;
+        }
+
+        let selectedMonth = getLocalMonthString();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const rawUser = urlParams.get('user');
+        const currentRole = urlParams.get('role');
+        
+        const normalizedKey = (rawUser || '').toLowerCase().trim();
+        const currentUserShare = userToShareMap[normalizedKey] || rawUser;
+        const displayUser = rawUser ? rawUser.charAt(0).toUpperCase() + rawUser.slice(1) : 'User';
+
+        const adminUsers = ['jigneshkumar', 'jaimin', 'ishani', 'ishanibhabhi', 'jaimin & ishani'];
+        const isAdmin = (adminUsers.includes(normalizedKey) && currentRole === 'admin');
+
+        if (!rawUser || !userToShareMap[normalizedKey]) {
+            document.getElementById('error-screen').style.display = 'block';
+        } else {
+            document.getElementById('app-container').style.display = 'block';
+            document.getElementById('display-name').innerText = displayUser;
+            
+            if (isAdmin) {
+                document.getElementById('role-badge').innerHTML = '<span class="admin-badge">ADMIN MODE</span>';
+                document.getElementById('clear-btn').style.display = 'block';
+                document.getElementById('admin-month-filter').style.display = 'flex';
+                document.getElementById('actions-col').style.display = 'table-cell';
+            } else {
+                document.getElementById('role-badge').innerHTML = '<span class="user-badge">PERSONAL ACCOUNT</span>';
+                document.querySelectorAll('.admin-option').forEach(opt => opt.remove());
+                document.getElementById('category').value = 'household';
+            }
+
+            const now = new Date();
+            document.getElementById('date').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+            fetchExpensesFromCloud();
+        }
+
+        async function fetchExpensesFromCloud() {
+            const statusEl = document.getElementById('sync-status');
+            statusEl.innerText = 'Syncing cloud data...';
+            try {
+                const response = await fetch(`/api/data`);
+                if (!response.ok) throw new Error(`Server returned HTTP ${response.status}`);
+
+                const data = await response.json();
+                expenses = data.expenses || [];
+                monthlyPayments = data.monthlyPayments || {};
+                
+                if (!monthlyPayments.householdPaid) monthlyPayments.householdPaid = {};
+                if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
+                
+                statusEl.innerText = 'Connected & Synced';
+                updateMonthDropdown();
+                renderExpenses();
+                renderPreviousMonthSummary();
+                
+                if (isMonthEnded(selectedMonth) && !isAdmin) {
+                    calculateSettlement();
+                } else {
+                    document.getElementById('report-card').style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error fetching cloud data:', err);
+                statusEl.innerText = 'Sync failed. Retrying in 5 seconds...';
+                setTimeout(fetchExpensesFromCloud, 5000);
+            }
+        }
+
+        function calculateMonthOwedForShare(targetMonthYM, shareUnit) {
+            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
+            if (prevExpenses.length === 0) return 0;
+
+            let householdTotal = 0;
+            let shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareSpent = {};
+            activeShares.forEach(s => shareSpent[s] = 0);
+
+            prevExpenses.forEach(item => {
+                if (item.category === 'shaw') shawTotal += item.amount;
+                else if (item.category === 'enmax') enmaxTotal += item.amount;
+                else if (item.category === 'atco') atcoTotal += item.amount;
+                else {
+                    householdTotal += item.amount;
+                    const key = (item.paidBy || '').toLowerCase().trim();
+                    const sUnit = userToShareMap[key] || "Jigneshkumar";
+                    if (shareSpent[sUnit] !== undefined) shareSpent[sUnit] += item.amount;
+                }
+            });
+
+            const sharePerUnit = (householdTotal + shawTotal + enmaxTotal + atcoTotal) / 3; 
+            const paid = shareSpent[shareUnit] || 0;
+            const netBeforePayment = paid - sharePerUnit;
+
+            if (netBeforePayment < -0.005) {
+                const totalOwed = Math.abs(netBeforePayment);
+                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[targetMonthYM]?.[shareUnit];
+                let customPaid = (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005) ? totalOwed : (prevPaidRecord || 0);
+                return Math.max(0, totalOwed - customPaid);
+            }
+            return 0;
+        }
+
+        function getCreditorForShareInMonth(targetMonthYM, shareUnit) {
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
+            if (monthExpenses.length === 0) return null;
+
+            let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareSpent = {};
+            activeShares.forEach(s => shareSpent[s] = 0);
+
+            monthExpenses.forEach(item => {
+                const key = (item.paidBy || '').toLowerCase().trim();
+                const sUnit = userToShareMap[key];
+                if (!sUnit || !activeShares.includes(sUnit)) return;
+                shareSpent[sUnit] += item.amount;
+            });
+
+            const totalSum = Object.values(shareSpent).reduce((a, b) => a + b, 0);
+            const targetPerUnit = totalSum / 3;
+
+            let debtors = [], creditors = [];
+            activeShares.forEach(s => {
+                const net = shareSpent[s] - targetPerUnit;
+                if (net >= 0.005) creditors.push({ person: s, amount: net });
+                else if (net <= -0.005) debtors.push({ person: s, amount: Math.abs(net) });
+            });
+
+            let dIndex = 0, cIndex = 0;
+            while (dIndex < debtors.length && cIndex < creditors.length) {
+                let debtor = debtors[dIndex], creditor = creditors[cIndex];
+                let transferAmount = Math.min(debtor.amount, creditor.amount);
+                if (debtor.person === shareUnit) return creditor.person;
+                debtor.amount -= transferAmount;
+                creditor.amount -= transferAmount;
+                if (debtor.amount < 0.01) dIndex++;
+                if (creditor.amount < 0.01) cIndex++;
+            }
+            return null;
+        }
+
+        function renderPreviousMonthSummary() {
+            const container = document.getElementById('prev-month-summary-container');
+            container.innerHTML = '';
+
+            const currentYM = getLocalMonthString();
+            const prevMonthYM = getPreviousMonthString(currentYM);
+            let cumulativePastDue = 0;
+            let lastCreditorFound = null;
+            let checkMonth = prevMonthYM;
+
+            for (let i = 0; i < 24; i++) {
+                const dueForMonth = calculateMonthOwedForShare(checkMonth, currentUserShare);
+                if (dueForMonth > 0) {
+                    cumulativePastDue += dueForMonth;
+                    if (!lastCreditorFound) lastCreditorFound = getCreditorForShareInMonth(checkMonth, currentUserShare);
+                }
+                const nextCheck = getPreviousMonthString(checkMonth);
+                if (nextCheck === checkMonth) break;
+                checkMonth = nextCheck;
+            }
+
+            let bannerClass = "prev-month-banner";
+            let messageHtml = '';
+
+            if (cumulativePastDue > 0.005) {
+                const payeeName = lastCreditorFound || "Jaimin & Ishani";
+                messageHtml = `⚠️ <strong>Cumulative Past Balance Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past months.`;
+            } else {
+                bannerClass += " all-settled";
+                messageHtml = `⚠️ <strong>Cumulative Past Balance Owed to ${currentUserShare}</strong>: $0.00 (all past months fully settled ✓)`;
+            }
+
+            container.innerHTML = `<div class="${bannerClass}"><h3>My Summary Cumulative Standing</h3><p>${messageHtml}</p></div>`;
+        }
+
+        function updateMonthDropdown() {
+            const dropdown = document.getElementById('month-filter');
+            const currentYM = getLocalMonthString();
+            const monthSet = new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : ''));
+            monthSet.add(currentYM);
+            monthSet.delete('');
+
+            dropdown.innerHTML = '';
+            Array.from(monthSet).sort().reverse().forEach(ym => {
+                const [year, month] = ym.split('-');
+                const label = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                const option = document.createElement('option');
+                option.value = ym;
+                option.innerText = `${label}${ym === currentYM ? ' (Active)' : ' (Archived)'}`;
+                dropdown.appendChild(option);
+            });
+            dropdown.value = selectedMonth;
+        }
+
+        function onMonthFilterChange() {
+            selectedMonth = document.getElementById('month-filter').value;
+            renderExpenses();
+            if (isMonthEnded(selectedMonth) && !isAdmin) calculateSettlement();
+            else document.getElementById('report-card').style.display = 'none';
+        }
+
+        async function saveExpensesToCloud() {
+            const statusEl = document.getElementById('sync-status');
+            statusEl.innerText = 'Saving to cloud...';
+            try {
+                const response = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ unit: 'main', expenses: expenses, monthlyPayments: monthlyPayments })
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                statusEl.innerText = 'Saved to Cloud';
+                return true;
+            } catch (err) {
+                statusEl.innerText = 'Cloud save failed!';
+                alert('Warning: Failed to sync to cloud.');
+                return false;
+            }
+        }
+
+        document.getElementById('expense-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-btn');
+            submitBtn.disabled = true;
+
+            const date = document.getElementById('date').value;
+            const category = isAdmin ? document.getElementById('category').value : 'household';
+            const description = document.getElementById('description').value.trim();
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            if (!description || isNaN(amount) || amount <= 0) {
+                alert('Please enter valid expense details.');
+                submitBtn.disabled = false;
+                return;
+            }
+
+            expenses.push({ id: Date.now(), date, category, paidBy: rawUser, description, amount, archived: false });
+            selectedMonth = date.slice(0, 7);
+            updateMonthDropdown();
+            renderExpenses();
+
+            await saveExpensesToCloud();
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+            submitBtn.disabled = false;
+        });
+
+        function renderExpenses() {
+            const list = document.getElementById('expense-list');
+            list.innerHTML = '';
+            const filtered = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `<tr><td colspan="${isAdmin ? 6 : 5}">No expenses recorded for this month.</td></tr>`;
+                return;
+            }
+
+            filtered.sort((a, b) => new Date(b.date) - new Date(a.date)).forEach(item => {
+                const row = document.createElement('tr');
+                let catTag = '<span style="color:#2980b9;">3 Way Split</span>';
+                if (item.category === 'shaw') catTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet</span>';
+                if (item.category === 'enmax') catTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
+                if (item.category === 'atco') catTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
+
+                row.innerHTML = `
+                    <td>${item.date}</td>
+                    <td><strong>${item.paidBy ? item.paidBy.charAt(0).toUpperCase() + item.paidBy.slice(1) : ''}</strong></td>
+                    <td>${catTag}</td>
+                    <td class="desc-cell"></td>
+                    <td>$${item.amount.toFixed(2)}</td>
+                    ${isAdmin ? `<td><button class="btn-action btn-delete" onclick="deleteExpense(${item.id})">Delete</button></td>` : ''}
+                `;
+                row.querySelector('.desc-cell').textContent = item.description;
+                list.appendChild(row);
+            });
+        }
+
+        async function deleteExpense(id) {
+            if (!isAdmin || !confirm("Delete this expense?")) return;
+            expenses = expenses.filter(item => item.id !== id);
+            updateMonthDropdown();
+            renderExpenses();
+            await saveExpensesToCloud();
+        }
+
+        function calculateSettlement() {
+            const filtered = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+
+            let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareHouseholdSpent = {}, shareUtilitySpent = {};
+            activeShares.forEach(s => { shareHouseholdSpent[s] = 0; shareUtilitySpent[s] = 0; });
+
+            filtered.forEach(item => {
+                const sUnit = userToShareMap[(item.paidBy || '').toLowerCase().trim()];
+                if (!sUnit || !activeShares.includes(sUnit)) return;
+
+                if (item.category === 'shaw') { shawTotal += item.amount; shareUtilitySpent[sUnit] += item.amount; }
+                else if (item.category === 'enmax') { enmaxTotal += item.amount; shareUtilitySpent[sUnit] += item.amount; }
+                else if (item.category === 'atco') { atcoTotal += item.amount; shareUtilitySpent[sUnit] += item.amount; }
+                else { householdTotal += item.amount; shareHouseholdSpent[sUnit] += item.amount; }
+            });
+
+            document.getElementById('household-total').innerText = householdTotal.toFixed(2);
+            document.getElementById('household-share').innerText = (householdTotal / 3).toFixed(2);
+            document.getElementById('shaw-total').innerText = shawTotal.toFixed(2);
+            document.getElementById('enmax-total').innerText = enmaxTotal.toFixed(2);
+            document.getElementById('atco-total').innerText = atcoTotal.toFixed(2);
+
+            const spendingBody = document.getElementById('spending-breakdown-list');
+            spendingBody.innerHTML = '';
+            activeShares.forEach(shareUnit => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td><strong>${shareUnit}</strong></td><td>$${shareHouseholdSpent[shareUnit].toFixed(2)}</td><td>$${shareUtilitySpent[shareUnit].toFixed(2)}</td>`;
+                spendingBody.appendChild(row);
+            });
+
+            document.getElementById('report-card').style.display = 'block';
+        }
+
+        function exportToCSV() {
+            const filtered = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            if (filtered.length === 0) { alert('No expenses to export.'); return; }
+            let csv = "Date,Paid By,Category,Description,Amount\n";
+            filtered.forEach(e => { csv += `"${e.date}","${e.paidBy}","${e.category}","${e.description}",${e.amount}\n`; });
+            const blob = new Blob(["\uFEFF" + csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `MainFloor_Expenses_${selectedMonth}.csv`;
+            link.click();
+        }
+
+        async function clearAllData() {
+            if (!isAdmin || !confirm("Archive month?")) return;
+            expenses.forEach(e => { if (e.date.startsWith(selectedMonth)) e.archived = true; });
+            await saveExpensesToCloud();
+            updateMonthDropdown();
+            renderExpenses();
+            document.getElementById('report-card').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
