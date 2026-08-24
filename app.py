@@ -101,9 +101,7 @@ if "expenses" not in st.session_state or "monthly_payments" not in st.session_st
 # --- SIDEBAR UI & PROPERTY SWITCHER (Open Access) ---
 st.sidebar.title("🏡 253 Herron Mews")
 property_selection = st.sidebar.radio(
-    "Select Property / Unit",
-    ["Main Floor", "Basement Suite"],
-    index=0
+    "Select Property / Unit", ["Main Floor", "Basement Suite"], index=0
 )
 
 st.sidebar.markdown("---")
