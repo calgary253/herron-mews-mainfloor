@@ -98,21 +98,12 @@ if "expenses" not in st.session_state or "monthly_payments" not in st.session_st
   st.session_state.expenses = exps
   st.session_state.monthly_payments = mp
 
-# --- URL PARAMETER ROUTING (Optional fallback) ---
-query_params = st.query_params
-unit_param = query_params.get("unit", "").lower()
-current_user = query_params.get("user", "Resident")
-user_role = query_params.get("role", "member")
-
-# Determine default unit index based on optional query parameter
-default_unit_index = 1 if unit_param == "basement" else 0
-
-# --- SIDEBAR UI & PROPERTY SWITCHER (Open to all) ---
+# --- SIDEBAR UI & PROPERTY SWITCHER (Open Access) ---
 st.sidebar.title("🏡 253 Herron Mews")
 property_selection = st.sidebar.radio(
     "Select Property / Unit",
     ["Main Floor", "Basement Suite"],
-    index=default_unit_index,
+    index=0
 )
 
 st.sidebar.markdown("---")
