@@ -98,85 +98,39 @@ if "expenses" not in st.session_state or "monthly_payments" not in st.session_st
   st.session_state.expenses = exps
   st.session_state.monthly_payments = mp
 
-# --- URL PARAMETER ROUTING & AUTHENTICATION ---
+# --- URL PARAMETER ROUTING (Optional fallback) ---
 query_params = st.query_params
 unit_param = query_params.get("unit", "").lower()
-current_user = query_params.get("user", "Jigneshkumar").strip()
-user_role = query_params.get("role", "admin").lower()
+current_user = query_params.get("user", "Resident")
+user_role = query_params.get("role", "member")
 
-# Define authorized users for each unit
-MAIN_FLOOR_USERS = [
-    "jigneshkumar",
-    "jaimin",
-    "ishani",
-    "viru",
-    "drashti",
-    "ishanibhabhi",
-]
-BASEMENT_USERS = ["biren", "akshay", "kunjalbhabhi", "biju", "manali"]
+# Determine default unit index based on optional query parameter
+default_unit_index = 1 if unit_param == "basement" else 0
 
-user_lower = current_user.lower()
-is_basement_user = user_lower in [u.lower() for u in BASEMENT_USERS]
-is_main_user = user_lower in [u.lower() for u in MAIN_FLOOR_USERS]
-
-# --- SIDEBAR UI & SECURITY RESTRICTIONS ---
+# --- SIDEBAR UI & PROPERTY SWITCHER (Open to all) ---
 st.sidebar.title("🏡 253 Herron Mews")
-
-if is_basement_user and not is_main_user and user_role != "admin":
-  property_selection = "Basement Suite"
-  st.sidebar.info("🔒 Restricted to Basement Suite view.")
-elif is_main_user and not is_basement_user and user_role != "admin":
-  property_selection = "Main Floor"
-  st.sidebar.info("🔒 Restricted to Main Floor view.")
-else:
-  # Determine default unit index based on URL query parameter
-  default_unit_index = 1 if unit_param == "basement" else 0
-  property_selection = st.sidebar.radio(
-      "Select Property / Unit",
-      ["Main Floor", "Basement Suite"],
-      index=default_unit_index,
-  )
+property_selection = st.sidebar.radio(
+    "Select Property / Unit",
+    ["Main Floor", "Basement Suite"],
+    index=default_unit_index,
+)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     f"""
     <div style="background-color: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 15px;">
-        👤 <b>User:</b> {current_user.capitalize()}<br>
-        🛡️ <b>Role:</b> {user_role.upper()}
+        🏠 <b>Portal View:</b> {property_selection}
     </div>
     """,
     unsafe_allow_html=True,
 )
-
-# --- STRICT ACCESS VALIDATION CHECK ---
-if (
-    property_selection == "Basement Suite"
-    and user_lower not in [u.lower() for u in BASEMENT_USERS]
-    and user_role != "admin"
-):
-  st.error(
-      "🚫 Access Denied: You do not have permission to view the Basement Suite"
-      " tracker."
-  )
-  st.stop()
-
-if (
-    property_selection == "Main Floor"
-    and user_lower not in [u.lower() for u in MAIN_FLOOR_USERS]
-    and user_role != "admin"
-):
-  st.error(
-      "🚫 Access Denied: You do not have permission to view the Main Floor"
-      " tracker."
-  )
-  st.stop()
 
 # --- ROUTING LOGIC ---
 if property_selection == "Basement Suite":
   run_basement_tracker()
 
 else:
-  # --- EXISTING MAIN FLOOR CODE BLOCK ---
+  # --- MAIN FLOOR CODE BLOCK ---
   all_months = sorted(
       list(
           set(
@@ -372,12 +326,7 @@ else:
 
   with tab3:
     st.subheader("➕ Add New Household Expense")
-    default_payer_index = 0
     payers = ["Jigneshkumar", "Jaimin", "Viru", "Ishani", "Drashti"]
-    for idx, p in enumerate(payers):
-      if p.lower() in current_user.lower():
-        default_payer_index = idx
-        break
 
     with st.form("expense_form", clear_on_submit=True):
       c1, c2 = st.columns(2)
@@ -389,7 +338,7 @@ else:
           "Category",
           ["Groceries", "Household", "shaw", "enmax", "atco", "Other"],
       )
-      paid_by = c4.selectbox("Paid By", payers, index=default_payer_index)
+      paid_by = c4.selectbox("Paid By", payers)
       exp_date = c5.date_input("Expense Date", datetime.now())
 
       submitted = st.form_submit_button("Save Expense", use_container_width=True)
@@ -411,26 +360,21 @@ else:
 
   with tab4:
     st.subheader("📝 Manage & Delete Logged Expenses")
-    if user_role.lower() != "admin":
-      st.warning(
-          "⚠️ You are in read-only mode. Admin rights required to delete."
-      )
-    else:
-      if st.session_state.expenses:
-        exp_df = pd.DataFrame(st.session_state.expenses)
-        st.dataframe(exp_df, use_container_width=True, hide_index=True)
+    if st.session_state.expenses:
+      exp_df = pd.DataFrame(st.session_state.expenses)
+      st.dataframe(exp_df, use_container_width=True, hide_index=True)
 
-        del_id = st.text_input(
-            "Enter the Expense ID to delete (copy from table above):"
-        )
-        if st.button("Delete Expense Record", type="primary"):
-          st.session_state.expenses = [
-              e for e in st.session_state.expenses if str(e.get("id")) != del_id
-          ]
-          if save_data_to_cloud(
-              st.session_state.expenses, st.session_state.monthly_payments
-          ):
-            st.success("Expense successfully deleted from cloud!")
-            st.rerun()
-      else:
-        st.info("No expense records found.")
+      del_id = st.text_input(
+          "Enter the Expense ID to delete (copy from table above):"
+      )
+      if st.button("Delete Expense Record", type="primary"):
+        st.session_state.expenses = [
+            e for e in st.session_state.expenses if str(e.get("id")) != del_id
+        ]
+        if save_data_to_cloud(
+            st.session_state.expenses, st.session_state.monthly_payments
+        ):
+          st.success("Expense successfully deleted from cloud!")
+          st.rerun()
+    else:
+      st.info("No expense records found.")
