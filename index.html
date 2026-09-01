@@ -1207,7 +1207,26 @@
                         statusText = 'Paid & Settled ✓';
                         formattedNet = `$0.00`;
                     } else {
-                        statusText = `Gets back $${net.toFixed(2)}`;
+                        // Find who owes this creditor based on debtor/creditor breakdown matching
+                        let owingParties = [];
+                        let tempDebtorsForLabel = JSON.parse(JSON.stringify(debtors));
+                        let tempCreditorsForLabel = JSON.parse(JSON.stringify(creditors));
+                        let dIdx = 0, cIdx = 0;
+                        while (dIdx < tempDebtorsForLabel.length && cIdx < tempCreditorsForLabel.length) {
+                            let deb = tempDebtorsForLabel[dIdx];
+                            let cred = tempCreditorsForLabel[cIdx];
+                            let amt = Math.min(deb.amount, cred.amount);
+                            if (cred.person === shareUnit) {
+                                let debName = (deb.person === "Viru & Drashti") ? "Drashti & Viru" : deb.person;
+                                owingParties.push(`${debName} ($${amt.toFixed(2)})`);
+                            }
+                            deb.amount -= amt;
+                            cred.amount -= amt;
+                            if (deb.amount < 0.01) dIdx++;
+                            if (cred.amount < 0.01) cIdx++;
+                        }
+                        let fromText = owingParties.length > 0 ? ` from ${owingParties.join(', ')}` : '';
+                        statusText = `Gets back $${net.toFixed(2)}${fromText}`;
                         formattedNet = `$${net.toFixed(2)}`;
                     }
                 } else {
@@ -1238,7 +1257,9 @@
             const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
             const prevMonthHeader = prevMonthCard.previousElementSibling; 
             if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
-                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${prevMonth})`;
+                const [pYear, pMonthNum] = prevMonth.split('-');
+                const pMonthName = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${pMonthName})`;
             }
             
             const tableParent = prevBalancesBody.closest('table');
@@ -1312,7 +1333,9 @@
             });
 
             if (!hasPrevBalances) {
-                prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from previous months. ✓</td></tr>`;
+                const [pYear, pMonthNum] = prevMonth.split('-');
+                const pMonthName = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from ${pMonthName}. ✓</td></tr>`;
             }
 
             document.getElementById('report-card').style.display = 'block';
