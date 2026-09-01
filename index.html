@@ -1152,6 +1152,8 @@
             transfersList.innerHTML = '';
 
             let transferSteps = [];
+            let debtorAttributions = {}; // Map creditor -> array of {name, amount}
+
             if (debtors.length > 0 && creditors.length > 0) {
                 let dIndex = 0, cIndex = 0;
                 let tempDebtors = JSON.parse(JSON.stringify(debtors));
@@ -1166,6 +1168,14 @@
                     let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
                     transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
+
+                    if (!debtorAttributions[creditor.person]) {
+                        debtorAttributions[creditor.person] = [];
+                    }
+                    debtorAttributions[creditor.person].push({
+                        name: debtorDisplayName,
+                        amount: transferAmount
+                    });
 
                     debtor.amount -= transferAmount;
                     creditor.amount -= transferAmount;
@@ -1207,25 +1217,11 @@
                         statusText = 'Paid & Settled ✓';
                         formattedNet = `$0.00`;
                     } else {
-                        // Find who owes this creditor based on debtor/creditor breakdown matching
-                        let owingParties = [];
-                        let tempDebtorsForLabel = JSON.parse(JSON.stringify(debtors));
-                        let tempCreditorsForLabel = JSON.parse(JSON.stringify(creditors));
-                        let dIdx = 0, cIdx = 0;
-                        while (dIdx < tempDebtorsForLabel.length && cIdx < tempCreditorsForLabel.length) {
-                            let deb = tempDebtorsForLabel[dIdx];
-                            let cred = tempCreditorsForLabel[cIdx];
-                            let amt = Math.min(deb.amount, cred.amount);
-                            if (cred.person === shareUnit) {
-                                let debName = (deb.person === "Viru & Drashti") ? "Drashti & Viru" : deb.person;
-                                owingParties.push(`${debName} ($${amt.toFixed(2)})`);
-                            }
-                            deb.amount -= amt;
-                            cred.amount -= amt;
-                            if (deb.amount < 0.01) dIdx++;
-                            if (cred.amount < 0.01) cIdx++;
+                        let fromText = '';
+                        if (debtorAttributions[shareUnit] && debtorAttributions[shareUnit].length > 0) {
+                            let parts = debtorAttributions[shareUnit].map(d => `${d.name} ($${d.amount.toFixed(2)})`);
+                            fromText = ` from ${parts.join(', ')}`;
                         }
-                        let fromText = owingParties.length > 0 ? ` from ${owingParties.join(', ')}` : '';
                         statusText = `Gets back $${net.toFixed(2)}${fromText}`;
                         formattedNet = `$${net.toFixed(2)}`;
                     }
@@ -1233,7 +1229,33 @@
                     const totalOwed = Math.abs(net);
                     netClass = 'val-net-negative';
                     statusClass = 'owes';
-                    statusText = `Owes $${totalOwed.toFixed(2)}`;
+                    
+                    // Find who this debtor owes
+                    let owingToCreditors = [];
+                    if (debtors.length > 0 && creditors.length > 0) {
+                        let dIndex = 0, cIndex = 0;
+                        let tempDebtors = JSON.parse(JSON.stringify(debtors));
+                        let tempCreditors = JSON.parse(JSON.stringify(creditors));
+
+                        while (dIndex < tempDebtors.length && cIndex < tempCreditors.length) {
+                            let debtor = tempDebtors[dIndex];
+                            let creditor = tempCreditors[cIndex];
+                            let transferAmount = Math.min(debtor.amount, creditor.amount);
+
+                            if (debtor.person === shareUnit) {
+                                let credName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
+                                owingToCreditors.push(`${credName} ($${transferAmount.toFixed(2)})`);
+                            }
+
+                            debtor.amount -= transferAmount;
+                            creditor.amount -= transferAmount;
+
+                            if (debtor.amount < 0.01) dIndex++;
+                            if (creditor.amount < 0.01) cIndex++;
+                        }
+                    }
+                    let toText = owingToCreditors.length > 0 ? ` to ${owingToCreditors.join(', ')}` : '';
+                    statusText = `Owes $${totalOwed.toFixed(2)}${toText}`;
                     formattedNet = `-$${totalOwed.toFixed(2)}`;
                 }
 
