@@ -677,26 +677,27 @@
             container.innerHTML = '';
 
             const currentYM = getLocalMonthString();
-            const prevMonthYM = getPreviousMonthString(currentYM);
-            const [pYear, pMonth] = prevMonthYM.split('-');
-            const prevMonthLabel = new Date(pYear, pMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-
             const userShareUnit = currentUserShare;
             if (userShareUnit === "Viru & Drashti") {
                 container.innerHTML = `
                     <div class="prev-month-banner">
                         <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
-                        <p>💰 <strong>3 Way Split Expenses (${prevMonthLabel})</strong>: You were removed from the equation for August 2026.</p>
+                        <p>💰 <strong>3 Way Split Expenses</strong>: You were removed from the equation for August 2026.</p>
                     </div>
                 `;
                 return;
             }
 
+            // Collect all unique past months that actually have expenses recorded
+            const recordedMonths = Array.from(new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : '')))
+                .filter(ym => ym < currentYM)
+                .sort()
+                .reverse();
+
             let cumulativePastDue = 0;
             let lastCreditorFound = null;
-            let checkMonth = prevMonthYM;
-            let iterationCount = 0;
-            while (iterationCount < 24) {
+
+            recordedMonths.forEach(checkMonth => {
                 const dueForMonth = calculateMonthOwedForShare(checkMonth, userShareUnit);
                 if (dueForMonth > 0) {
                     cumulativePastDue += dueForMonth;
@@ -704,11 +705,7 @@
                         lastCreditorFound = getCreditorForShareInMonth(checkMonth, userShareUnit);
                     }
                 }
-                const nextCheck = getPreviousMonthString(checkMonth);
-                if (nextCheck === checkMonth) break;
-                checkMonth = nextCheck;
-                iterationCount++;
-            }
+            });
 
             const combinedProfileTitle = userShareUnit;
             let bannerClass = "prev-month-banner";
@@ -716,7 +713,7 @@
 
             if (cumulativePastDue > 0.005) {
                 const payeeName = lastCreditorFound ? lastCreditorFound : "Jaimin & Ishani";
-                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past months.`;
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past recorded months.`;
             } else {
                 bannerClass += " all-settled";
                 messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: $0.00 (all past months fully settled ✓)`;
@@ -1254,7 +1251,6 @@
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 
-                // Section 3 Total Paid matches Column 1 (3-Way Split Spent) + Main Floor Proportional Utility Share
                 const displayTotalPaid = hSpent + (uSpent * utilityRatio);
 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
