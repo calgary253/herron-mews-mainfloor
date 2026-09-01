@@ -688,13 +688,13 @@
                 return;
             }
 
-            // Collect all unique past months that actually have expenses recorded
+            // Collect all unique past months that actually have expenses recorded, but strictly prior to August 2026 if August is the baseline
             const recordedMonths = Array.from(new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : '')))
-                .filter(ym => ym < currentYM)
+                .filter(ym => ym < currentYM && ym > "2026-07")
                 .sort()
                 .reverse();
 
-            // Guard against phantom or empty history arrays
+            // Guard against phantom or empty history arrays, or if August is the earliest month (no July history exists)
             if (recordedMonths.length === 0) {
                 container.innerHTML = `
                     <div class="prev-month-banner all-settled">
@@ -1011,64 +1011,67 @@
             const prevMonth = getPreviousMonthString(selectedMonth);
             let prevMonthOwedMap = {};
 
-            const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
-            if (prevExpenses.length > 0) {
-                const isPrevAugust2026 = (prevMonth === '2026-08');
-                const prevActiveShares = isPrevAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
+            // Only calculate previous month if there's actual history prior to August (i.e. prevMonth > "2026-07")
+            if (prevMonth > "2026-07") {
+                const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
+                if (prevExpenses.length > 0) {
+                    const isPrevAugust2026 = (prevMonth === '2026-08');
+                    const prevActiveShares = isPrevAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
 
-                let prevHouseholdTotal = 0;
-                let prevShawTotal = 0, prevEnmaxTotal = 0, prevAtcoTotal = 0;
-                const prevShareSpent = {};
-                const prevShareUtilitySpent = {};
-                prevActiveShares.forEach(s => {
-                    prevShareSpent[s] = 0;
-                    prevShareUtilitySpent[s] = 0;
-                });
+                    let prevHouseholdTotal = 0;
+                    let prevShawTotal = 0, prevEnmaxTotal = 0, prevAtcoTotal = 0;
+                    const prevShareSpent = {};
+                    const prevShareUtilitySpent = {};
+                    prevActiveShares.forEach(s => {
+                        prevShareSpent[s] = 0;
+                        prevShareUtilitySpent[s] = 0;
+                    });
 
-                prevExpenses.forEach(item => {
-                    const key = (item.paidBy || '').toLowerCase().trim();
-                    const shareUnit = userToShareMap[key] || "Jigneshkumar";
-                    if (item.category === 'shaw') {
-                        prevShawTotal += item.amount;
-                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
-                    } else if (item.category === 'enmax') {
-                        prevEnmaxTotal += item.amount;
-                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
-                    } else if (item.category === 'atco') {
-                        prevAtcoTotal += item.amount;
-                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
-                    } else {
-                        prevHouseholdTotal += item.amount;
-                        if (prevShareSpent[shareUnit] !== undefined) prevShareSpent[shareUnit] += item.amount;
-                    }
-                });
+                    prevExpenses.forEach(item => {
+                        const key = (item.paidBy || '').toLowerCase().trim();
+                        const shareUnit = userToShareMap[key] || "Jigneshkumar";
+                        if (item.category === 'shaw') {
+                            prevShawTotal += item.amount;
+                            if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                        } else if (item.category === 'enmax') {
+                            prevEnmaxTotal += item.amount;
+                            if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                        } else if (item.category === 'atco') {
+                            prevAtcoTotal += item.amount;
+                            if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                        } else {
+                            prevHouseholdTotal += item.amount;
+                            if (prevShareSpent[shareUnit] !== undefined) prevShareSpent[shareUnit] += item.amount;
+                        }
+                    });
 
-                const prevHouseholdDivisor = isPrevAugust2026 ? 3 : 5;
-                const prevUtilityResidents = isPrevAugust2026 ? 8 : 9;
-                const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 5;
-                const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
+                    const prevHouseholdDivisor = isPrevAugust2026 ? 3 : 5;
+                    const prevUtilityResidents = isPrevAugust2026 ? 8 : 9;
+                    const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 5;
+                    const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
 
-                const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
-                const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / prevUtilityResidents);
-                const prevResidentCountMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-                const prevWeightMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+                    const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
+                    const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / prevUtilityResidents);
+                    const prevResidentCountMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+                    const prevWeightMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
 
-                prevActiveShares.forEach(shareUnit => {
-                    const hSpent = prevShareSpent[shareUnit] || 0;
-                    const uSpent = prevShareUtilitySpent[shareUnit] || 0;
-                    const paid = hSpent + (uSpent * prevUtilityRatio);
+                    prevActiveShares.forEach(shareUnit => {
+                        const hSpent = prevShareSpent[shareUnit] || 0;
+                        const uSpent = prevShareUtilitySpent[shareUnit] || 0;
+                        const paid = hSpent + (uSpent * prevUtilityRatio);
 
-                    const hTarget = prevHouseholdSharePerUnit * prevWeightMap[shareUnit];
-                    const uTarget = prevUtilitySharePerResident * prevResidentCountMap[shareUnit];
-                    
-                    const totalTarget = hTarget + uTarget;
-                    const netBeforePayment = paid - totalTarget;
+                        const hTarget = prevHouseholdSharePerUnit * prevWeightMap[shareUnit];
+                        const uTarget = prevUtilitySharePerResident * prevResidentCountMap[shareUnit];
+                        
+                        const totalTarget = hTarget + uTarget;
+                        const netBeforePayment = paid - totalTarget;
 
-                    if (netBeforePayment < -0.005) {
-                        const totalOwed = Math.abs(netBeforePayment);
-                        prevMonthOwedMap[shareUnit] = totalOwed;
-                    }
-                });
+                        if (netBeforePayment < -0.005) {
+                            const totalOwed = Math.abs(netBeforePayment);
+                            prevMonthOwedMap[shareUnit] = totalOwed;
+                        }
+                    });
+                }
             }
 
             const filtered = getFilteredExpenses();
