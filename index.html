@@ -1148,11 +1148,49 @@
                 }
             });
 
+            let debtorAttributions = {}; 
+            let creditorAttributions = {};
+
+            if (debtors.length > 0 && creditors.length > 0) {
+                let dIndex = 0, cIndex = 0;
+                let tempDebtors = JSON.parse(JSON.stringify(debtors));
+                let tempCreditors = JSON.parse(JSON.stringify(creditors));
+
+                while (dIndex < tempDebtors.length && cIndex < tempCreditors.length) {
+                    let debtor = tempDebtors[dIndex];
+                    let creditor = tempCreditors[cIndex];
+                    let transferAmount = Math.min(debtor.amount, creditor.amount);
+
+                    let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
+                    let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
+
+                    if (!debtorAttributions[creditor.person]) {
+                        debtorAttributions[creditor.person] = [];
+                    }
+                    debtorAttributions[creditor.person].push({
+                        name: debtorDisplayName,
+                        amount: transferAmount
+                    });
+
+                    if (!creditorAttributions[debtor.person]) {
+                        creditorAttributions[debtor.person] = [];
+                    }
+                    creditorAttributions[debtor.person].push({
+                        name: creditorDisplayName,
+                        amount: transferAmount
+                    });
+
+                    debtor.amount -= transferAmount;
+                    creditor.amount -= transferAmount;
+
+                    if (debtor.amount < 0.01) dIndex++;
+                    if (creditor.amount < 0.01) cIndex++;
+                }
+            }
+
             const transfersList = document.getElementById('transfers-list');
             transfersList.innerHTML = '';
-
             let transferSteps = [];
-            let debtorAttributions = {}; 
 
             if (debtors.length > 0 && creditors.length > 0) {
                 let dIndex = 0, cIndex = 0;
@@ -1168,14 +1206,6 @@
                     let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
                     transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
-
-                    if (!debtorAttributions[creditor.person]) {
-                        debtorAttributions[creditor.person] = [];
-                    }
-                    debtorAttributions[creditor.person].push({
-                        name: debtorDisplayName,
-                        amount: transferAmount
-                    });
 
                     debtor.amount -= transferAmount;
                     creditor.amount -= transferAmount;
@@ -1231,27 +1261,9 @@
                     statusClass = 'owes';
                     
                     let owingToCreditors = [];
-                    if (debtors.length > 0 && creditors.length > 0) {
-                        let dIndex = 0, cIndex = 0;
-                        let tempDebtors = JSON.parse(JSON.stringify(debtors));
-                        let tempCreditors = JSON.parse(JSON.stringify(creditors));
-
-                        while (dIndex < tempDebtors.length && cIndex < tempCreditors.length) {
-                            let debtor = tempDebtors[dIndex];
-                            let creditor = tempCreditors[cIndex];
-                            let transferAmount = Math.min(debtor.amount, creditor.amount);
-
-                            if (debtor.person === shareUnit) {
-                                let credName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
-                                owingToCreditors.push(`${credName} ($${transferAmount.toFixed(2)})`);
-                            }
-
-                            debtor.amount -= transferAmount;
-                            creditor.amount -= transferAmount;
-
-                            if (debtor.amount < 0.01) dIndex++;
-                            if (creditor.amount < 0.01) cIndex++;
-                        }
+                    if (creditorAttributions[shareUnit] && creditorAttributions[shareUnit].length > 0) {
+                        let parts = creditorAttributions[shareUnit].map(c => `${c.name} ($${c.amount.toFixed(2)})`);
+                        owingToCreditors = parts;
                     }
                     let toText = owingToCreditors.length > 0 ? ` to ${owingToCreditors.join(', ')}` : '';
                     statusText = `Owes $${totalOwed.toFixed(2)}${toText}`;
