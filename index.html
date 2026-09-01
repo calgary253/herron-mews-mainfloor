@@ -86,10 +86,6 @@
         .btn-clear { background-color: #e74c3c; float: right; }
         .btn-clear:hover { background-color: #c0392b; }
         .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
-        .btn-settled { background-color: #27ae60; }
-        .btn-settled:hover { background-color: #219150; }
-        .btn-unpaid { background-color: #e74c3c; }
-        .btn-unpaid:hover { background-color: #c0392b; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
 
@@ -1235,6 +1231,9 @@
                 const currentMonthTarget = hTarget + uTarget;
                 const net = paid - currentMonthTarget;
 
+                // As landlord/owner, Jaimin & Ishani's total paid reported in Section 3 should only count the shared main floor utilities they share/pay into
+                const displayTotalPaid = (shareUnit === "Jaimin & Ishani") ? (shareUtilitySpent[shareUnit] || 0) : paid;
+
                 let netClass = '';
                 let statusClass = '';
                 let statusText = '';
@@ -1275,7 +1274,7 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${displayShareUnit}</strong></td>
-                    <td class="val-paid">$${paid.toFixed(2)}</td>
+                    <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
                     <td class="${statusClass}">${statusText}</td>
