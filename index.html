@@ -1225,14 +1225,16 @@
             settlementBody.innerHTML = '';
 
             upstairsShares.forEach(shareUnit => {
-                const paid = (shareHouseholdSpent[shareUnit] || 0) + (shareUtilitySpent[shareUnit] || 0);
+                const hSpent = shareHouseholdSpent[shareUnit] || 0;
+                const uShareOnly = utilitySharePerResident * residentCountMap[shareUnit];
+                
+                // FIXED: Section 3 "Total Paid" now counts household spending + ONLY their individual personal utility share (instead of full gross utility bills paid)
+                const displayTotalPaid = hSpent + uShareOnly;
+
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
-                const net = paid - currentMonthTarget;
-
-                // As landlord/owner, Jaimin & Ishani's total paid reported in Section 3 should only count the shared main floor utilities they share/pay into
-                const displayTotalPaid = (shareUnit === "Jaimin & Ishani") ? (shareUtilitySpent[shareUnit] || 0) : paid;
+                const net = displayTotalPaid - currentMonthTarget;
 
                 let netClass = '';
                 let statusClass = '';
