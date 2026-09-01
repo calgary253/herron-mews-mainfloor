@@ -1127,11 +1127,14 @@
             let creditors = [];
 
             upstairsShares.forEach(shareUnit => {
-                const paid = (shareHouseholdSpent[shareUnit] || 0) + (shareUtilitySpent[shareUnit] || 0);
+                const hSpent = shareHouseholdSpent[shareUnit] || 0;
+                const uSpent = shareUtilitySpent[shareUnit] || 0;
+                const totalPaidForNet = hSpent + uSpent;
+
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
-                const net = paid - currentMonthTarget;
+                const net = totalPaidForNet - currentMonthTarget;
 
                 let paidAmount = 0;
                 if (net >= 0) {
@@ -1226,10 +1229,10 @@
 
             upstairsShares.forEach(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
-                const uShareOnly = utilitySharePerResident * residentCountMap[shareUnit];
+                const uSpent = shareUtilitySpent[shareUnit] || 0;
                 
-                // FIXED: Section 3 "Total Paid" now counts household spending + ONLY their individual personal utility share (instead of full gross utility bills paid)
-                const displayTotalPaid = hSpent + uShareOnly;
+                // FIXED: Section 3 "Total Paid" now correctly matches Column 1 (3-way split spent) + Gross Utility Spent (Utility Spent column from Section 1)
+                const displayTotalPaid = hSpent + uSpent;
 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
