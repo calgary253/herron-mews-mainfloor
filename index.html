@@ -694,6 +694,17 @@
                 .sort()
                 .reverse();
 
+            // Guard against phantom or empty history arrays
+            if (recordedMonths.length === 0) {
+                container.innerHTML = `
+                    <div class="prev-month-banner all-settled">
+                        <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
+                        <p>⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${userShareUnit}</strong>: $0.00 (all past months fully settled ✓)</p>
+                    </div>
+                `;
+                return;
+            }
+
             let cumulativePastDue = 0;
             let lastCreditorFound = null;
 
