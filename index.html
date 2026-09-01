@@ -1231,7 +1231,7 @@
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 
-                // FIXED: Section 3 "Total Paid" now correctly matches Column 1 (3-way split spent) + Gross Utility Spent (Utility Spent column from Section 1)
+                // Section 3 Total Paid matches Column 1 (3-Way Split Spent) + Gross Utility Spent
                 const displayTotalPaid = hSpent + uSpent;
 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
