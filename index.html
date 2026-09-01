@@ -676,6 +676,11 @@
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
 
+            // Hide/skip summary banner specifically for Jaimin's profile
+            if (normalizedKey === 'jaimin' || normalizedKey === 'ishani' || normalizedKey === 'ishanibhabhi' || normalizedKey === 'jaimin & ishani') {
+                return;
+            }
+
             const currentYM = getLocalMonthString();
             const userShareUnit = currentUserShare;
             if (userShareUnit === "Viru & Drashti") {
@@ -721,7 +726,7 @@
             let messageHtml = '';
 
             if (cumulativePastDue > 0.005) {
-                const payeeName = lastCreditorFound ? lastCreditorFound : "Jaimin & Ishani";
+                const payeeName = lastCreditorFound ? lastCreditorFound : "Jigneshkumar";
                 messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past recorded months.`;
             } else {
                 bannerClass += " all-settled";
