@@ -688,13 +688,11 @@
                 return;
             }
 
-            // Collect all unique past months that actually have expenses recorded, but strictly prior to August 2026 if August is the baseline
             const recordedMonths = Array.from(new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : '')))
                 .filter(ym => ym < currentYM && ym > "2026-07")
                 .sort()
                 .reverse();
 
-            // Guard against phantom or empty history arrays, or if August is the earliest month (no July history exists)
             if (recordedMonths.length === 0) {
                 container.innerHTML = `
                     <div class="prev-month-banner all-settled">
@@ -1011,7 +1009,6 @@
             const prevMonth = getPreviousMonthString(selectedMonth);
             let prevMonthOwedMap = {};
 
-            // Only calculate previous month if there's actual history prior to August (i.e. prevMonth > "2026-07")
             if (prevMonth > "2026-07") {
                 const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
                 if (prevExpenses.length > 0) {
@@ -1320,7 +1317,6 @@
                 settlementBody.appendChild(row);
             });
 
-            // Section 4: Previous Month Unpaid Balances Tracker
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
@@ -1332,19 +1328,6 @@
                 prevSectionTitle.innerText = `4. Previous Month Unpaid Balances (${pMonthName})`;
             }
             
-            const tableParent = prevBalancesBody.closest('table');
-            if (tableParent) {
-                const theadRow = tableParent.querySelector('thead tr');
-                if (theadRow) {
-                    theadRow.innerHTML = `
-                        <th>Share Unit</th>
-                        <th>Unpaid Balance from Last Month</th>
-                        <th>Status</th>
-                        <th>Enter Payment ($)</th>
-                    `;
-                }
-            }
-
             let hasPrevBalances = false;
 
             upstairsShares.forEach(shareUnit => {
