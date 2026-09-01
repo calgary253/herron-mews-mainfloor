@@ -355,7 +355,7 @@
 
             <br>
 
-            <h3>4. Previous Month Unpaid Balances</h3>
+            <h3 id="prev-month-section-title">4. Previous Month Unpaid Balances</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
@@ -1152,7 +1152,7 @@
             transfersList.innerHTML = '';
 
             let transferSteps = [];
-            let debtorAttributions = {}; // Map creditor -> array of {name, amount}
+            let debtorAttributions = {}; 
 
             if (debtors.length > 0 && creditors.length > 0) {
                 let dIndex = 0, cIndex = 0;
@@ -1230,7 +1230,6 @@
                     netClass = 'val-net-negative';
                     statusClass = 'owes';
                     
-                    // Find who this debtor owes
                     let owingToCreditors = [];
                     if (debtors.length > 0 && creditors.length > 0) {
                         let dIndex = 0, cIndex = 0;
@@ -1276,12 +1275,12 @@
             const prevBalancesBody = document.getElementById('prev-month-balances-list');
             prevBalancesBody.innerHTML = '';
 
-            const prevMonthCard = document.getElementById('prev-month-balances-list').closest('div');
-            const prevMonthHeader = prevMonthCard.previousElementSibling; 
-            if (prevMonthHeader && prevMonthHeader.tagName === 'H3') {
-                const [pYear, pMonthNum] = prevMonth.split('-');
-                const pMonthName = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-                prevMonthHeader.innerText = `Previous Month Unpaid Balances (${pMonthName})`;
+            const [pYear, pMonthNum] = prevMonth.split('-');
+            const pMonthName = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+            
+            const prevSectionTitle = document.getElementById('prev-month-section-title');
+            if (prevSectionTitle) {
+                prevSectionTitle.innerText = `4. Previous Month Unpaid Balances (${pMonthName})`;
             }
             
             const tableParent = prevBalancesBody.closest('table');
@@ -1355,8 +1354,6 @@
             });
 
             if (!hasPrevBalances) {
-                const [pYear, pMonthNum] = prevMonth.split('-');
-                const pMonthName = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
                 prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from ${pMonthName}. ✓</td></tr>`;
             }
 
