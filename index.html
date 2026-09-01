@@ -549,6 +549,8 @@
 
             const householdDivisor = isAugust2026 ? 3 : 5;
             const utilityResidents = isAugust2026 ? 8 : 9;
+            const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
@@ -618,6 +620,8 @@
 
             const householdDivisor = isAugust2026 ? 3 : 5;
             const utilityResidents = isAugust2026 ? 8 : 9;
+            const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
@@ -629,7 +633,10 @@
             let creditors = [];
 
             activeShares.forEach(s => {
-                const paid = (shareHouseholdSpent[s] || 0) + (shareUtilitySpent[s] || 0);
+                const hSpent = shareHouseholdSpent[s] || 0;
+                const uSpent = shareUtilitySpent[s] || 0;
+                const paid = hSpent + (uSpent * utilityRatio);
+                
                 const hTarget = householdSharePerUnit * weightMap[s];
                 const uTarget = utilitySharePerResident * residentCountMap[s];
                 const target = hTarget + uTarget;
@@ -1004,22 +1011,34 @@
                 let prevHouseholdTotal = 0;
                 let prevShawTotal = 0, prevEnmaxTotal = 0, prevAtcoTotal = 0;
                 const prevShareSpent = {};
-                prevActiveShares.forEach(s => prevShareSpent[s] = 0);
+                const prevShareUtilitySpent = {};
+                prevActiveShares.forEach(s => {
+                    prevShareSpent[s] = 0;
+                    prevShareUtilitySpent[s] = 0;
+                });
 
                 prevExpenses.forEach(item => {
-                    if (item.category === 'shaw') prevShawTotal += item.amount;
-                    else if (item.category === 'enmax') prevEnmaxTotal += item.amount;
-                    else if (item.category === 'atco') prevAtcoTotal += item.amount;
-                    else {
+                    const key = (item.paidBy || '').toLowerCase().trim();
+                    const shareUnit = userToShareMap[key] || "Jigneshkumar";
+                    if (item.category === 'shaw') {
+                        prevShawTotal += item.amount;
+                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                    } else if (item.category === 'enmax') {
+                        prevEnmaxTotal += item.amount;
+                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                    } else if (item.category === 'atco') {
+                        prevAtcoTotal += item.amount;
+                        if (prevShareUtilitySpent[shareUnit] !== undefined) prevShareUtilitySpent[shareUnit] += item.amount;
+                    } else {
                         prevHouseholdTotal += item.amount;
-                        const key = (item.paidBy || '').toLowerCase().trim();
-                        const shareUnit = userToShareMap[key] || "Jigneshkumar";
                         if (prevShareSpent[shareUnit] !== undefined) prevShareSpent[shareUnit] += item.amount;
                     }
                 });
 
                 const prevHouseholdDivisor = isPrevAugust2026 ? 3 : 5;
                 const prevUtilityResidents = isPrevAugust2026 ? 8 : 9;
+                const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 5;
+                const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
 
                 const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
                 const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / prevUtilityResidents);
@@ -1027,7 +1046,10 @@
                 const prevWeightMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
 
                 prevActiveShares.forEach(shareUnit => {
-                    const paid = prevShareSpent[shareUnit] || 0;
+                    const hSpent = prevShareSpent[shareUnit] || 0;
+                    const uSpent = prevShareUtilitySpent[shareUnit] || 0;
+                    const paid = hSpent + (uSpent * prevUtilityRatio);
+
                     const hTarget = prevHouseholdSharePerUnit * prevWeightMap[shareUnit];
                     const uTarget = prevUtilitySharePerResident * prevResidentCountMap[shareUnit];
                     
@@ -1082,6 +1104,7 @@
             const householdDivisor = isAugust2026 ? 3 : 5;
             const utilityResidents = isAugust2026 ? 8 : 9;
             const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const baseHouseholdShareAmount = householdTotal / householdDivisor; 
             const shawSharePerResident = shawTotal / utilityResidents;         
@@ -1129,7 +1152,7 @@
             upstairsShares.forEach(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
-                const totalPaidForNet = hSpent + uSpent;
+                const totalPaidForNet = hSpent + (uSpent * utilityRatio);
 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
@@ -1231,8 +1254,8 @@
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 
-                // Section 3 Total Paid matches Column 1 (3-Way Split Spent) + Gross Utility Spent
-                const displayTotalPaid = hSpent + uSpent;
+                // Section 3 Total Paid matches Column 1 (3-Way Split Spent) + Main Floor Proportional Utility Share
+                const displayTotalPaid = hSpent + (uSpent * utilityRatio);
 
                 const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
