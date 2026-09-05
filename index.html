@@ -1246,18 +1246,27 @@
                 let paymentStatusHtml = '';
 
                 if (net >= -0.005 && net <= 0.005) {
-                    netBalanceHtml = `<span class="val-net-positive">$0.00</span>`;
-                    paymentStatusHtml = `<span>Settled</span>`;
+                    netBalanceHtml = `<span class="val-net-positive">$0.00 (Settled)</span>`;
+                    paymentStatusHtml = isAdmin 
+                        ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', 0)">Enter Amount</button>`
+                        : `<span style="color: #7f8c8d;">Settled</span>`;
                 } else if (net > 0.005) {
-                    netBalanceHtml = `<span class="val-net-positive">+$${net.toFixed(2)}</span>`;
-                    paymentStatusHtml = `<span>gets back</span>`;
+                    netBalanceHtml = `<span class="val-net-positive">+$${net.toFixed(2)} (Receiving)</span>`;
+                    paymentStatusHtml = isAdmin 
+                        ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${net})">Enter Amount</button>`
+                        : `<span>-</span>`;
                 } else {
                     const totalOwed = Math.abs(net);
                     const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
                     const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
 
-                    netBalanceHtml = `<span class="val-net-negative">-$${remainingOwed.toFixed(2)}</span>`;
-                    paymentStatusHtml = `<span>owes</span>`;
+                    netBalanceHtml = `<span class="val-net-negative">-$${remainingOwed.toFixed(2)} (Owing)</span>`;
+                    
+                    if (isAdmin) {
+                        paymentStatusHtml = `<button class="btn-pay-red" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Enter Amount</button>`;
+                    } else {
+                        paymentStatusHtml = `<span style="color: #c0392b; font-weight: bold;">Action Required</span>`;
+                    }
                 }
 
                 row.innerHTML = `
@@ -1279,7 +1288,7 @@
             
             const prevSectionTitle = document.getElementById('prev-month-section-title');
             if (prevSectionTitle) {
-                prevSectionTitle.innerText = `4. Previous Month Due (${pMonthName})`;
+                prevSectionTitle.innerText = `4. Previous Month Unpaid Balances (${pMonthName})`;
             }
             
             let hasPrevBalances = false;
@@ -1308,13 +1317,27 @@
 
                 if (prevOwedAmt <= 0.005) {
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = `Settled ✓`;
+                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = `Paid ✓`;
+                    
+                    if (isAdmin) {
+                        actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
+                    } else {
+                        actionHtml = `Paid ✓`;
+                    }
                 } else {
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
-                    actionHtml = `Outstanding`;
+                    
+                    if (isAdmin) {
+                        if (customPaidAmount > 0) {
+                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)} (Unpaid)</button>`;
+                        } else {
+                            actionHtml = `<button class="btn-pay-red" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Payment</button>`;
+                        }
+                    } else {
+                        actionHtml = `Outstanding`;
+                    }
                 }
 
                 const row = document.createElement('tr');
