@@ -333,6 +333,7 @@
                             <th>Share Unit</th>
                             <th>Total Paid</th>
                             <th>Target Share</th>
+                            <th>Net Balance</th>
                             <th>Payment Status</th>
                         </tr>
                     </thead>
@@ -1242,49 +1243,40 @@
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
                 const row = document.createElement('tr');
 
+                let netBalanceHtml = '';
+                let paymentStatusHtml = '';
+
                 if (net >= -0.005 && net <= 0.005) {
-                    row.innerHTML = `
-                        <td><strong>${displayShareUnit}</strong></td>
-                        <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
-                        <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
-                        <td class="val-net-positive">$0.00 (Settled)</td>
-                    `;
+                    netBalanceHtml = `<span class="val-net-positive">$0.00 (Settled)</span>`;
+                    paymentStatusHtml = isAdmin 
+                        ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', 0)">Enter Amount</button>`
+                        : `<span style="color: #7f8c8d;">Settled</span>`;
                 } else if (net > 0.005) {
-                    row.innerHTML = `
-                        <td><strong>${displayShareUnit}</strong></td>
-                        <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
-                        <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
-                        <td class="val-net-positive">+$${net.toFixed(2)} (Gets Back)</td>
-                    `;
+                    netBalanceHtml = `<span class="val-net-positive">+$${net.toFixed(2)} (Receiving)</span>`;
+                    paymentStatusHtml = isAdmin 
+                        ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${net})">Enter Amount</button>`
+                        : `<span>-</span>`;
                 } else {
                     const totalOwed = Math.abs(net);
                     const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
                     const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
 
-                    let paymentStatusHtml = '';
-                    if (remainingOwed <= 0.005) {
-                        paymentStatusHtml = isAdmin 
-                            ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Payment Settled: $${currentPaidVal.toFixed(2)}</button>`
-                            : `<span style="color: #27ae60; font-weight: bold;">Payment Settled: $${currentPaidVal.toFixed(2)}</span>`;
+                    netBalanceHtml = `<span class="val-net-negative">-$${remainingOwed.toFixed(2)} (Owing)</span>`;
+                    
+                    if (isAdmin) {
+                        paymentStatusHtml = `<button class="btn-pay-red" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Enter Amount</button>`;
                     } else {
-                        if (isAdmin) {
-                            if (currentPaidVal > 0) {
-                                paymentStatusHtml = `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Payment Settled: $${currentPaidVal.toFixed(2)}</button>`;
-                            } else {
-                                paymentStatusHtml = `<button class="btn-pay-red" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">-$${totalOwed.toFixed(2)} - Enter Payment</button>`;
-                            }
-                        } else {
-                            paymentStatusHtml = `<span style="color: #c0392b; font-weight: bold;">-$${remainingOwed.toFixed(2)}</span>`;
-                        }
+                        paymentStatusHtml = `<span style="color: #c0392b; font-weight: bold;">Action Required</span>`;
                     }
-
-                    row.innerHTML = `
-                        <td><strong>${displayShareUnit}</strong></td>
-                        <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
-                        <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
-                        <td>${paymentStatusHtml}</td>
-                    `;
                 }
+
+                row.innerHTML = `
+                    <td><strong>${displayShareUnit}</strong></td>
+                    <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
+                    <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
+                    <td>${netBalanceHtml}</td>
+                    <td>${paymentStatusHtml}</td>
+                `;
 
                 settlementBody.appendChild(row);
             });
