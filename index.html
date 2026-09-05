@@ -83,8 +83,6 @@
         .btn-calc:hover { background-color: #1f6391; }
         .btn-export { background-color: #16a085; }
         .btn-export:hover { background-color: #117864; }
-        .btn-clear { background-color: #e74c3c; float: right; }
-        .btn-clear:hover { background-color: #c0392b; }
         .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
@@ -215,12 +213,6 @@
                 gap: 8px !important;
             }
 
-            .btn-clear {
-                float: none;
-                width: 100%;
-                margin-bottom: 15px;
-            }
-
             th, td {
                 padding: 8px 6px;
                 font-size: 13px;
@@ -264,10 +256,8 @@
 
         <!-- Logged Expenses View -->
         <div class="card">
-            <button id="clear-btn" class="btn-clear" onclick="clearAllData()" style="display: none;">Archive Selected Month</button>
-            
             <div class="filter-header">
-                <h2 id="log-title" style="margin: 0;">Logged Expenses (Current Month)</h2>
+                <h2 id="log-title" style="margin: 0;">Logged Expenses</h2>
                 <div style="display: flex; gap: 8px; align-items: center;">
                     <label for="month-filter"><strong>View Month:</strong> </label>
                     <select id="month-filter" onchange="onMonthFilterChange()" style="padding: 5px 10px; min-width: 150px;"></select>
@@ -413,11 +403,6 @@
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
         }
 
-        function isMonthEnded(monthStr) {
-            const currentYM = getLocalMonthString(new Date());
-            return monthStr < currentYM;
-        }
-
         let selectedMonth = getLocalMonthString();
 
         const urlParams = new URLSearchParams(window.location.search);
@@ -443,7 +428,6 @@
             
             if (isAdmin) {
                 document.getElementById('role-badge').innerHTML = '<span class="admin-badge">ADMIN MODE</span>';
-                document.getElementById('clear-btn').style.display = 'block';
                 document.getElementById('admin-month-filter').style.display = 'flex';
                 document.getElementById('actions-col').style.display = 'table-cell';
             } else {
@@ -494,12 +478,7 @@
                 updateMonthDropdown();
                 renderExpenses();
                 renderPreviousMonthSummary();
-                
-                if (isMonthEnded(selectedMonth) || isAdmin) {
-                    calculateSettlement();
-                } else {
-                    document.getElementById('report-card').style.display = 'none';
-                }
+                calculateSettlement();
             } catch (err) {
                 console.error('Error fetching cloud data:', err);
                 
@@ -516,11 +495,7 @@
                     updateMonthDropdown();
                     renderExpenses();
                     renderPreviousMonthSummary();
-                    if (isMonthEnded(selectedMonth) || isAdmin) {
-                        calculateSettlement();
-                    } else {
-                        document.getElementById('report-card').style.display = 'none';
-                    }
+                    calculateSettlement();
                 } else {
                     statusEl.innerText = 'Sync failed. Retrying in 5 seconds...';
                 }
@@ -767,11 +742,10 @@
                 const [year, month] = ym.split('-');
                 const dateObj = new Date(year, month - 1);
                 const label = dateObj.toLocaleString('default', { month: 'long', year: 'numeric' });
-                const statusTag = (ym === currentYM) ? ' (Active)' : ' (Archived)';
                 
                 const option = document.createElement('option');
                 option.value = ym;
-                option.innerText = `${label}${statusTag}`;
+                option.innerText = label;
                 dropdown.appendChild(option);
             });
 
@@ -853,7 +827,7 @@
             submitBtn.innerText = 'Saving Expense...';
 
             const newExpenseMonth = date.slice(0, 7);
-            expenses.push({ id: Date.now(), date, category, paidBy: rawUser, description, amount, archived: false });
+            expenses.push({ id: Date.now(), date, category, paidBy: rawUser, description, amount });
             
             selectedMonth = newExpenseMonth;
             updateMonthDropdown();
@@ -879,13 +853,10 @@
             list.innerHTML = '';
 
             const filtered = getFilteredExpenses();
-            const currentYM = getLocalMonthString();
             const [year, month] = selectedMonth.split('-');
             const monthLabel = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
             
-            document.getElementById('log-title').innerText = selectedMonth === currentYM 
-                ? `Logged Expenses (${monthLabel} - Active)` 
-                : `Logged Expenses (${monthLabel} - Archived)`;
+            document.getElementById('log-title').innerText = `Logged Expenses (${monthLabel})`;
 
             if (filtered.length === 0) {
                 const colSpan = isAdmin ? 6 : 5;
@@ -1428,38 +1399,6 @@
 
             document.body.removeChild(link);
             setTimeout(() => URL.revokeObjectURL(url), 100);
-        }
-
-        async function clearAllData() {
-            if (!isAdmin) return;
-
-            const [year, month] = selectedMonth.split('-');
-            const monthLabel = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
-
-            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
-
-            if (monthExpenses.length === 0) {
-                alert(`No expenses recorded for ${monthLabel} to archive.`);
-                return;
-            }
-
-            const confirmed = confirm(
-                `Archive month ${monthLabel}?\n\n` +
-                `This will lock the records into archive mode where past standings and settlements remain fully reviewable.`
-            );
-
-            if (!confirmed) return;
-
-            expenses.forEach(e => {
-                if (e.date && e.date.startsWith(selectedMonth)) {
-                    e.archived = true;
-                }
-            });
-
-            await saveExpensesToCloud();
-            updateMonthDropdown();
-            renderExpenses();
-            calculateSettlement();
         }
     </script>
 </body>
