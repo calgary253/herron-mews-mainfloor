@@ -495,7 +495,7 @@
                 renderExpenses();
                 renderPreviousMonthSummary();
                 
-                if (isMonthEnded(selectedMonth) && !isAdmin) {
+                if (isMonthEnded(selectedMonth) || isAdmin) {
                     calculateSettlement();
                 } else {
                     document.getElementById('report-card').style.display = 'none';
@@ -515,7 +515,7 @@
                     updateMonthDropdown();
                     renderExpenses();
                     renderPreviousMonthSummary();
-                    if (isMonthEnded(selectedMonth) && !isAdmin) {
+                    if (isMonthEnded(selectedMonth) || isAdmin) {
                         calculateSettlement();
                     } else {
                         document.getElementById('report-card').style.display = 'none';
@@ -682,7 +682,6 @@
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
 
-            // Hide/skip summary banner specifically for Jaimin's profile
             if (normalizedKey === 'jaimin' || normalizedKey === 'ishani' || normalizedKey === 'ishanibhabhi' || normalizedKey === 'jaimin & ishani') {
                 return;
             }
@@ -781,12 +780,7 @@
         function onMonthFilterChange() {
             selectedMonth = document.getElementById('month-filter').value;
             renderExpenses();
-            
-            if (isMonthEnded(selectedMonth) && !isAdmin) {
-                calculateSettlement();
-            } else {
-                document.getElementById('report-card').style.display = 'none';
-            }
+            calculateSettlement();
         }
 
         async function saveExpensesToCloud() {
@@ -859,12 +853,7 @@
             updateMonthDropdown();
 
             renderExpenses();
-            
-            if (isMonthEnded(selectedMonth) && !isAdmin) {
-                calculateSettlement();
-            } else if (!isAdmin) {
-                document.getElementById('report-card').style.display = 'none';
-            }
+            calculateSettlement();
 
             await saveExpensesToCloud();
 
@@ -962,9 +951,7 @@
 
             renderExpenses();
             await saveExpensesToCloud();
-            if (isMonthEnded(selectedMonth) && document.getElementById('report-card').style.display === 'block') {
-                calculateSettlement();
-            }
+            calculateSettlement();
         }
 
         async function deleteExpense(id) {
@@ -975,13 +962,7 @@
                 updateMonthDropdown();
                 renderExpenses();
                 await saveExpensesToCloud();
-                if (isMonthEnded(selectedMonth) && document.getElementById('report-card').style.display === 'block') {
-                    calculateSettlement();
-                } else if (!isAdmin && isMonthEnded(selectedMonth)) {
-                    calculateSettlement();
-                } else {
-                    document.getElementById('report-card').style.display = 'none';
-                }
+                calculateSettlement();
             }
         }
 
@@ -1377,7 +1358,7 @@
                     actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
+                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${prevOwedAmt.toFixed(2)}</span>`;
                     
                     if (isAdmin) {
                         actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
@@ -1386,11 +1367,11 @@
                     }
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
-                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
+                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)}</span>`;
                     
                     if (isAdmin) {
                         if (customPaidAmount > 0) {
-                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Partial Paid: $${customPaidAmount.toFixed(2)}</button>`;
+                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
                         } else {
                             actionHtml = `<button class="btn-pay-red" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Payment</button>`;
                         }
@@ -1414,7 +1395,6 @@
             }
 
             document.getElementById('report-card').style.display = 'block';
-            document.getElementById('report-card').scrollIntoView({ behavior: 'smooth' });
         }
 
         function exportToCSV() {
@@ -1477,7 +1457,7 @@
             await saveExpensesToCloud();
             updateMonthDropdown();
             renderExpenses();
-            document.getElementById('report-card').style.display = 'none';
+            calculateSettlement();
         }
     </script>
 </body>
