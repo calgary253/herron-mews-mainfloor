@@ -1436,7 +1436,7 @@
             const [year, month] = selectedMonth.split('-');
             const monthLabel = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 
-            const monthExpenses = expenses.expenses ? [] : expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
 
             if (monthExpenses.length === 0) {
                 alert(`No expenses recorded for ${monthLabel} to archive.`);
