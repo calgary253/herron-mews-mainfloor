@@ -299,7 +299,7 @@
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
                 <p>🔥 <strong>Atco Gas Total (Full Bill):</strong> $<span id="atco-total">0.00</span> <em>($<span id="atco-share">0.00</span> / resident)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
-                <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/9th Total):</strong> $<span id="utility-total">0.00</span></p>
+                <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/8th Total):</strong> $<span id="utility-total">0.00</span></p>
             </div>
 
             <h3>1. Spending Breakdown by Share Unit</h3>
@@ -386,7 +386,7 @@
         };
 
         const restrictedUsers = ['viru', 'drashti', 'viru & drashti'];
-        const TOTAL_UTILITY_RESIDENTS = 9;
+        const TOTAL_UTILITY_RESIDENTS = 8;
 
         let expenses = [];
         let monthlyPayments = {}; 
@@ -530,8 +530,8 @@
             });
 
             const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 9;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityResidents = isAugust2026 ? 8 : 8;
+            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
@@ -606,8 +606,8 @@
             });
 
             const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 9;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityResidents = isAugust2026 ? 8 : 8;
+            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
@@ -1056,8 +1056,8 @@
                     });
 
                     const prevHouseholdDivisor = isPrevAugust2026 ? 3 : 5;
-                    const prevUtilityResidents = isPrevAugust2026 ? 8 : 9;
-                    const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 5;
+                    const prevUtilityResidents = isPrevAugust2026 ? 8 : 8;
+                    const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 3;
                     const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
 
                     const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
@@ -1123,8 +1123,8 @@
             });
 
             const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 9;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 5;
+            const utilityResidents = isAugust2026 ? 8 : 8;
+            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const baseHouseholdShareAmount = householdTotal / householdDivisor; 
