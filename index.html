@@ -154,8 +154,8 @@
 
         .payment-list { list-style: none; padding: 0; }
         .payment-list li {
-            background: #eef7fe;
-            border-left: 4px solid #2980b9;
+            background: #fdf2f2;
+            border-left: 4px solid #c0392b;
             padding: 12px;
             margin-bottom: 8px;
             border-radius: 0 4px 4px 0;
@@ -340,7 +340,7 @@
                             <th>Total Paid</th>
                             <th>Target Share</th>
                             <th>Net Balance</th>
-                            <th>Status / Whom to Pay</th>
+                            <th>Payment Status</th>
                         </tr>
                     </thead>
                     <tbody id="settlement-list">
@@ -479,6 +479,9 @@
                 if (!monthlyPayments.prevMonthPaid) {
                     monthlyPayments.prevMonthPaid = {};
                 }
+                if (!monthlyPayments.currentMonthPaid) {
+                    monthlyPayments.currentMonthPaid = {};
+                }
                 
                 localStorage.setItem('cached_expenses_mainfloor', JSON.stringify(expenses));
                 localStorage.setItem('cached_payments_mainfloor', JSON.stringify(monthlyPayments));
@@ -504,6 +507,7 @@
                     if (cachedPayments) monthlyPayments = JSON.parse(cachedPayments);
                     if (!monthlyPayments.householdPaid) monthlyPayments.householdPaid = {};
                     if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
+                    if (!monthlyPayments.currentMonthPaid) monthlyPayments.currentMonthPaid = {};
 
                     statusEl.innerText = 'Offline mode: Loaded cached local data. Retrying cloud...';
                     updateMonthDropdown();
@@ -676,7 +680,6 @@
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
 
-            // Hide/skip summary banner specifically for Jaimin's profile
             if (normalizedKey === 'jaimin' || normalizedKey === 'ishani' || normalizedKey === 'ishanibhabhi' || normalizedKey === 'jaimin & ishani') {
                 return;
             }
@@ -1007,6 +1010,33 @@
             await saveExpensesToCloud();
         }
 
+        async function onCurrentMonthPaymentInput(month, shareUnit, netAmountOwed, inputEl) {
+            if (!isAdmin) return;
+
+            const valStr = inputEl.value.trim();
+            let newPaidAmount = 0;
+            if (valStr !== "") {
+                const parsed = parseFloat(valStr);
+                if (isNaN(parsed) || parsed < 0) {
+                    alert("Please enter a valid positive amount.");
+                    return;
+                }
+                newPaidAmount = parsed;
+            }
+
+            if (!monthlyPayments.currentMonthPaid) {
+                monthlyPayments.currentMonthPaid = {};
+            }
+            if (!monthlyPayments.currentMonthPaid[month]) {
+                monthlyPayments.currentMonthPaid[month] = {};
+            }
+
+            monthlyPayments.currentMonthPaid[month][shareUnit] = newPaidAmount;
+
+            calculateSettlement();
+            await saveExpensesToCloud();
+        }
+
         function calculateSettlement() {
             const isAugust2026 = (selectedMonth === '2026-08');
             const upstairsShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
@@ -1240,7 +1270,8 @@
                     let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
                     let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
-                    transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
+                    // Updated to show negative amount in red color instead of green
+                    transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#c0392b; font-weight:bold;">-$${transferAmount.toFixed(2)}</span>`);
 
                     debtor.amount -= transferAmount;
                     creditor.amount -= transferAmount;
@@ -1275,15 +1306,13 @@
                 const net = displayTotalPaid - currentMonthTarget;
 
                 let netClass = '';
-                let statusClass = '';
-                let statusText = '';
+                let statusHtml = '';
                 let formattedNet = '';
 
                 if (net >= 0) {
                     netClass = 'val-net-positive';
-                    statusClass = 'gets-back';
                     if (net <= 0.005) {
-                        statusText = 'Paid & Settled ✓';
+                        statusHtml = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
                         formattedNet = `$0.00`;
                     } else {
                         let fromText = '';
@@ -1291,21 +1320,34 @@
                             let parts = debtorAttributions[shareUnit].map(d => `${d.name} ($${d.amount.toFixed(2)})`);
                             fromText = ` from ${parts.join(', ')}`;
                         }
-                        statusText = `Gets back $${net.toFixed(2)}${fromText}`;
+                        statusHtml = `Gets back $${net.toFixed(2)}${fromText}`;
                         formattedNet = `$${net.toFixed(2)}`;
                     }
                 } else {
                     const totalOwed = Math.abs(net);
                     netClass = 'val-net-negative';
-                    statusClass = 'owes';
                     
-                    let owingToCreditors = [];
-                    if (creditorAttributions[shareUnit] && creditorAttributions[shareUnit].length > 0) {
-                        let parts = creditorAttributions[shareUnit].map(c => `${c.name} ($${c.amount.toFixed(2)})`);
-                        owingToCreditors = parts;
+                    const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
+                    const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
+
+                    if (remainingOwed <= 0.005) {
+                        statusHtml = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                    } else {
+                        if (isAdmin) {
+                            statusHtml = `
+                                <div style="display: flex; flex-direction: column; gap: 4px;">
+                                    <span style="color: #c0392b; font-weight: bold;">Owes $${remainingOwed.toFixed(2)}</span>
+                                    <input type="number" step="0.01" min="0" max="${totalOwed.toFixed(2)}" 
+                                        value="${currentPaidVal > 0 ? currentPaidVal.toFixed(2) : ''}" 
+                                        placeholder="Enter payment ($)" 
+                                        onchange="onCurrentMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${totalOwed}, this)"
+                                        style="width: 150px; padding: 6px; font-size: 13px;">
+                                </div>
+                            `;
+                        } else {
+                            statusHtml = `<span style="color: #c0392b; font-weight: bold;">Owes $${remainingOwed.toFixed(2)}</span>`;
+                        }
                     }
-                    let toText = owingToCreditors.length > 0 ? ` to ${owingToCreditors.join(', ')}` : '';
-                    statusText = `Owes $${totalOwed.toFixed(2)}${toText}`;
                     formattedNet = `-$${totalOwed.toFixed(2)}`;
                 }
 
@@ -1317,7 +1359,7 @@
                     <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td class="${netClass}">${formattedNet}</td>
-                    <td class="${statusClass}">${statusText}</td>
+                    <td>${statusHtml}</td>
                 `;
                 settlementBody.appendChild(row);
             });
@@ -1358,13 +1400,13 @@
                 let prevOwedDisplay = '';
 
                 if (prevOwedAmt <= 0.005) {
-                    statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
+                    statusBadge = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                    prevOwedDisplay = '<span style="color: green; font-weight: bold;">$0.00 (Settled)</span>';
+                    actionHtml = isAdmin ? `<span style="color: green; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
-                    statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
+                    statusBadge = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                    prevOwedDisplay = `<span style="color: green; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
+                    actionHtml = isAdmin ? `<span style="color: green; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
