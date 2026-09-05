@@ -351,8 +351,7 @@
                     <thead>
                         <tr>
                             <th>Share Unit</th>
-                            <th>Unpaid Balance from Last Month</th>
-                            <th>Status</th>
+                            <th>Previous Month Due</th>
                             <th>Payment Action</th>
                         </tr>
                     </thead>
@@ -1314,15 +1313,12 @@
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                 let actionHtml = '';
-                let statusBadge = '';
                 let prevOwedDisplay = '';
 
                 if (prevOwedAmt <= 0.005) {
-                    statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
                     actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
-                    statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
                     
                     if (isAdmin) {
@@ -1331,12 +1327,11 @@
                         actionHtml = `Paid ✓`;
                     }
                 } else {
-                    statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
-                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)}</span>`;
+                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
                     
                     if (isAdmin) {
                         if (customPaidAmount > 0) {
-                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
+                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)} (Unpaid)</button>`;
                         } else {
                             actionHtml = `<button class="btn-pay-red" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Payment</button>`;
                         }
@@ -1349,14 +1344,13 @@
                 row.innerHTML = `
                     <td><strong>${displayShareUnit}</strong></td>
                     <td>${prevOwedDisplay}</td>
-                    <td>${statusBadge}</td>
                     <td>${actionHtml}</td>
                 `;
                 prevBalancesBody.appendChild(row);
             });
 
             if (!hasPrevBalances) {
-                prevBalancesBody.innerHTML = `<tr><td colspan="4">No unpaid balances carried over from ${pMonthName}. ✓</td></tr>`;
+                prevBalancesBody.innerHTML = `<tr><td colspan="3">No unpaid balances carried over from ${pMonthName}. ✓</td></tr>`;
             }
 
             document.getElementById('report-card').style.display = 'block';
