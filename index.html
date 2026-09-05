@@ -89,6 +89,12 @@
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
 
+        /* Payment Interaction Buttons */
+        .btn-pay-red { background-color: #e74c3c; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; }
+        .btn-pay-red:hover { background-color: #c0392b; }
+        .btn-pay-green { background-color: #27ae60; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; }
+        .btn-pay-green:hover { background-color: #219150; }
+
         /* Previous Month Summary Banner */
         .prev-month-banner {
             background: #fff5f5;
@@ -359,7 +365,7 @@
                             <th>Share Unit</th>
                             <th>Unpaid Balance from Last Month</th>
                             <th>Status</th>
-                            <th>Enter Payment ($)</th>
+                            <th>Payment Action</th>
                         </tr>
                     </thead>
                     <tbody id="prev-month-balances-list">
@@ -979,19 +985,27 @@
             }
         }
 
-        async function onPrevMonthPaymentInput(month, shareUnit, totalOwed, inputEl) {
+        async function promptForPrevMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const valStr = inputEl.value.trim();
-            let newPaidAmount = 0;
-            if (valStr !== "") {
-                const parsed = parseFloat(valStr);
-                if (isNaN(parsed) || parsed < 0) {
-                    alert("Please enter a valid positive amount.");
-                    return;
-                }
-                newPaidAmount = parsed;
+            const currentRecorded = (monthlyPayments.prevMonthPaid?.[month]?.[shareUnit]) || 0;
+            const defaultPromptVal = currentRecorded > 0 ? currentRecorded : totalOwed;
+
+            const inputStr = prompt(
+                `Enter payment amount for ${shareUnit} (Max owed: $${totalOwed.toFixed(2)}):\n\n` +
+                `(Enter 0 to clear the payment record)`,
+                defaultPromptVal.toFixed(2)
+            );
+
+            if (inputStr === null) return; // Cancelled
+
+            const parsed = parseFloat(inputStr);
+            if (isNaN(parsed) || parsed < 0) {
+                alert("Please enter a valid positive amount.");
+                return;
             }
+
+            const newPaidAmount = Math.min(parsed, totalOwed);
 
             if (!monthlyPayments.prevMonthPaid) {
                 monthlyPayments.prevMonthPaid = {};
@@ -1360,24 +1374,29 @@
                 if (prevOwedAmt <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
+                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
                     prevOwedDisplay = `<span style="color: #27ae60; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
-                    actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
+                    
+                    if (isAdmin) {
+                        actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
+                    } else {
+                        actionHtml = `Paid ✓`;
+                    }
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
-                }
-
-                if (isAdmin && prevOwedAmt > 0.005) {
-                    actionHtml = `
-                        <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
-                            value="${customPaidAmount > 0 ? customPaidAmount.toFixed(2) : ''}" 
-                            placeholder="Enter Payment ($${prevOwedAmt.toFixed(2)})" 
-                            onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
-                            style="width: 180px; padding: 6px; font-size: 13px;">
-                    `;
+                    
+                    if (isAdmin) {
+                        if (customPaidAmount > 0) {
+                            actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Partial Paid: $${customPaidAmount.toFixed(2)}</button>`;
+                        } else {
+                            actionHtml = `<button class="btn-pay-red" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Payment</button>`;
+                        }
+                    } else {
+                        actionHtml = `Outstanding`;
+                    }
                 }
 
                 const row = document.createElement('tr');
