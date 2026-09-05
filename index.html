@@ -573,16 +573,22 @@
 
             if (netBeforePayment < -0.005) {
                 const totalOwed = Math.abs(netBeforePayment);
-                const prevPaidRecord = monthlyPayments.prevMonthPaid?.[targetMonthYM]?.[shareUnit];
                 
-                let customPaid = 0;
-                if (prevPaidRecord === true || prevPaidRecord >= totalOwed - 0.005) {
-                    customPaid = totalOwed;
-                } else if (typeof prevPaidRecord === 'number' && prevPaidRecord > 0) {
-                    customPaid = prevPaidRecord;
+                // Check both currentMonthPaid for that target month AND prevMonthPaid for the next month
+                const nextMonthYM = getPreviousMonthString(targetMonthYM); // dummy check, or look up via active view context
+                let customPaid = (monthlyPayments.currentMonthPaid?.[targetMonthYM]?.[shareUnit]) || 0;
+                if (!customPaid || customPaid === 0) {
+                    customPaid = (monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit]) || 0;
+                }
+                
+                let effectivePaid = 0;
+                if (customPaid === true || customPaid >= totalOwed - 0.005) {
+                    effectivePaid = totalOwed;
+                } else if (typeof customPaid === 'number' && customPaid > 0) {
+                    effectivePaid = customPaid;
                 }
 
-                const remainingOwed = Math.max(0, totalOwed - customPaid);
+                const remainingOwed = Math.max(0, totalOwed - effectivePaid);
                 return remainingOwed;
             }
             return 0;
@@ -970,7 +976,10 @@
         async function promptForPrevMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const currentRecorded = (monthlyPayments.prevMonthPaid?.[month]?.[shareUnit]) || 0;
+            // Check both prevMonthPaid for current view month AND currentMonthPaid for target archived month
+            const prevMonthYM = getPreviousMonthString(month);
+            const currentRecorded = (monthlyPayments.prevMonthPaid?.[month]?.[shareUnit]) || 
+                                    (monthlyPayments.currentMonthPaid?.[prevMonthYM]?.[shareUnit]) || 0;
             const defaultPromptVal = currentRecorded > 0 ? currentRecorded : totalOwed;
 
             const inputStr = prompt(
@@ -989,14 +998,14 @@
 
             const newPaidAmount = Math.min(parsed, totalOwed);
 
-            if (!monthlyPayments.prevMonthPaid) {
-                monthlyPayments.prevMonthPaid = {};
-            }
-            if (!monthlyPayments.prevMonthPaid[month]) {
-                monthlyPayments.prevMonthPaid[month] = {};
-            }
-
+            // Save to both places so they sync seamlessly whether viewing active or archived month
+            if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
+            if (!monthlyPayments.prevMonthPaid[month]) monthlyPayments.prevMonthPaid[month] = {};
             monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
+
+            if (!monthlyPayments.currentMonthPaid) monthlyPayments.currentMonthPaid = {};
+            if (!monthlyPayments.currentMonthPaid[prevMonthYM]) monthlyPayments.currentMonthPaid[prevMonthYM] = {};
+            monthlyPayments.currentMonthPaid[prevMonthYM][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             renderPreviousMonthSummary();
@@ -1025,14 +1034,15 @@
 
             const newPaidAmount = Math.min(parsed, totalOwed);
 
-            if (!monthlyPayments.currentMonthPaid) {
-                monthlyPayments.currentMonthPaid = {};
-            }
-            if (!monthlyPayments.currentMonthPaid[month]) {
-                monthlyPayments.currentMonthPaid[month] = {};
-            }
-
+            if (!monthlyPayments.currentMonthPaid) monthlyPayments.currentMonthPaid = {};
+            if (!monthlyPayments.currentMonthPaid[month]) monthlyPayments.currentMonthPaid[month] = {};
             monthlyPayments.currentMonthPaid[month][shareUnit] = newPaidAmount;
+
+            // Also mirror to prevMonthPaid for the subsequent active/next month view
+            const nextMonthYM = `${month.split('-')[0]}-${String(parseInt(month.split('-')[1]) + 1).padStart(2, '0')}`;
+            if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
+            if (!monthlyPayments.prevMonthPaid[nextMonthYM]) monthlyPayments.prevMonthPaid[nextMonthYM] = {};
+            monthlyPayments.prevMonthPaid[nextMonthYM][shareUnit] = newPaidAmount;
 
             calculateSettlement();
             await saveExpensesToCloud();
@@ -1331,7 +1341,9 @@
                     hasPrevBalances = true;
                 }
 
-                const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
+                // Check both prevMonthPaid for selected active month AND currentMonthPaid for target archived month
+                const prevPaidVal = (monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit]) || 
+                                    (monthlyPayments.currentMonthPaid?.[prevMonth]?.[shareUnit]) || 0;
                 
                 let customPaidAmount = 0;
                 if (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005) {
