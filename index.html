@@ -478,7 +478,7 @@
                 updateMonthDropdown();
                 renderExpenses();
                 renderPreviousMonthSummary();
-                calculateSettlement();
+                // Removed calculateSettlement() here so admins don't see the report by default
             } catch (err) {
                 console.error('Error fetching cloud data:', err);
                 
@@ -495,7 +495,6 @@
                     updateMonthDropdown();
                     renderExpenses();
                     renderPreviousMonthSummary();
-                    calculateSettlement();
                 } else {
                     statusEl.innerText = 'Sync failed. Retrying in 5 seconds...';
                 }
@@ -760,7 +759,8 @@
         function onMonthFilterChange() {
             selectedMonth = document.getElementById('month-filter').value;
             renderExpenses();
-            calculateSettlement();
+            // Hide the report card on month change so it requires clicking calculate again
+            document.getElementById('report-card').style.display = 'none';
         }
 
         async function saveExpensesToCloud() {
@@ -833,7 +833,7 @@
             updateMonthDropdown();
 
             renderExpenses();
-            calculateSettlement();
+            document.getElementById('report-card').style.display = 'none'; // Hide report until calculated
 
             await saveExpensesToCloud();
 
@@ -928,7 +928,7 @@
 
             renderExpenses();
             await saveExpensesToCloud();
-            calculateSettlement();
+            document.getElementById('report-card').style.display = 'none';
         }
 
         async function deleteExpense(id) {
@@ -939,7 +939,7 @@
                 updateMonthDropdown();
                 renderExpenses();
                 await saveExpensesToCloud();
-                calculateSettlement();
+                document.getElementById('report-card').style.display = 'none';
             }
         }
 
