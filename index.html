@@ -1246,21 +1246,19 @@
                 let paymentStatusHtml = '';
 
                 if (net >= -0.005 && net <= 0.005) {
-                    netBalanceHtml = `<span class="val-net-positive">$0.00 (Settled)</span>`;
+                    netBalanceHtml = `<span class="val-net-positive">$0.00</span>`;
                     paymentStatusHtml = isAdmin 
                         ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', 0)">Enter Amount</button>`
                         : `<span style="color: #7f8c8d;">Settled</span>`;
                 } else if (net > 0.005) {
-                    netBalanceHtml = `<span class="val-net-positive">+$${net.toFixed(2)} (Receiving)</span>`;
-                    paymentStatusHtml = isAdmin 
-                        ? `<button class="btn-pay-green" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${net})">Enter Amount</button>`
-                        : `<span>-</span>`;
+                    netBalanceHtml = `<span class="val-net-positive">$${net.toFixed(2)}</span>`;
+                    paymentStatusHtml = `Gets Back: $${net.toFixed(2)}`;
                 } else {
                     const totalOwed = Math.abs(net);
                     const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
                     const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
 
-                    netBalanceHtml = `<span class="val-net-negative">-$${remainingOwed.toFixed(2)} (Owing)</span>`;
+                    netBalanceHtml = `<span class="val-net-negative">-$${remainingOwed.toFixed(2)}</span>`;
                     
                     if (isAdmin) {
                         paymentStatusHtml = `<button class="btn-pay-red" onclick="promptForCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Enter Amount</button>`;
