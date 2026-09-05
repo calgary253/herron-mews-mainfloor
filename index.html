@@ -574,8 +574,7 @@
             if (netBeforePayment < -0.005) {
                 const totalOwed = Math.abs(netBeforePayment);
                 
-                // Check both currentMonthPaid for that target month AND prevMonthPaid for the next month
-                const nextMonthYM = getPreviousMonthString(targetMonthYM); // dummy check, or look up via active view context
+                const nextMonthYM = getPreviousMonthString(targetMonthYM);
                 let customPaid = (monthlyPayments.currentMonthPaid?.[targetMonthYM]?.[shareUnit]) || 0;
                 if (!customPaid || customPaid === 0) {
                     customPaid = (monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit]) || 0;
@@ -976,7 +975,6 @@
         async function promptForPrevMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            // Check both prevMonthPaid for current view month AND currentMonthPaid for target archived month
             const prevMonthYM = getPreviousMonthString(month);
             const currentRecorded = (monthlyPayments.prevMonthPaid?.[month]?.[shareUnit]) || 
                                     (monthlyPayments.currentMonthPaid?.[prevMonthYM]?.[shareUnit]) || 0;
@@ -998,7 +996,6 @@
 
             const newPaidAmount = Math.min(parsed, totalOwed);
 
-            // Save to both places so they sync seamlessly whether viewing active or archived month
             if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
             if (!monthlyPayments.prevMonthPaid[month]) monthlyPayments.prevMonthPaid[month] = {};
             monthlyPayments.prevMonthPaid[month][shareUnit] = newPaidAmount;
@@ -1038,7 +1035,6 @@
             if (!monthlyPayments.currentMonthPaid[month]) monthlyPayments.currentMonthPaid[month] = {};
             monthlyPayments.currentMonthPaid[month][shareUnit] = newPaidAmount;
 
-            // Also mirror to prevMonthPaid for the subsequent active/next month view
             const nextMonthYM = `${month.split('-')[0]}-${String(parseInt(month.split('-')[1]) + 1).padStart(2, '0')}`;
             if (!monthlyPayments.prevMonthPaid) monthlyPayments.prevMonthPaid = {};
             if (!monthlyPayments.prevMonthPaid[nextMonthYM]) monthlyPayments.prevMonthPaid[nextMonthYM] = {};
@@ -1341,7 +1337,6 @@
                     hasPrevBalances = true;
                 }
 
-                // Check both prevMonthPaid for selected active month AND currentMonthPaid for target archived month
                 const prevPaidVal = (monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit]) || 
                                     (monthlyPayments.currentMonthPaid?.[prevMonth]?.[shareUnit]) || 0;
                 
@@ -1365,7 +1360,7 @@
                     actionHtml = isAdmin ? `<span style="color: #27ae60; font-weight: bold;">Paid ✓</span>` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: #27ae60; font-weight: bold;">Settled ✓</span>';
-                    prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${prevOwedAmt.toFixed(2)}</span>`;
+                    prevOwedDisplay = '<span style="color: #27ae60; font-weight: bold;">$0.00 (Settled)</span>';
                     
                     if (isAdmin) {
                         actionHtml = `<button class="btn-pay-green" onclick="promptForPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Payment Settled: $${customPaidAmount.toFixed(2)}</button>`;
