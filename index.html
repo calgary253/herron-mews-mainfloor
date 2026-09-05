@@ -992,7 +992,7 @@
             if (!isAdmin) return;
 
             const currentVal = monthlyPayments.prevMonthPaid?.[month]?.[shareUnit] || 0;
-            const valStr = prompt(`Enter payment amount for past due balance (Max: $${totalOwed.toFixed(2)}):`, currentVal > 0 ? currentVal : totalOwed);
+            const valStr = prompt(`Enter payment amount (Max: $${totalOwed.toFixed(2)}):\n(Enter 0 to clear back to zero) `, currentVal > 0 ? currentVal : totalOwed);
             
             if (valStr === null) return;
 
@@ -1024,7 +1024,7 @@
             if (!isAdmin) return;
 
             const currentVal = monthlyPayments.currentMonthPaid?.[month]?.[shareUnit] || 0;
-            const valStr = prompt(`Enter payment amount (Max: $${totalOwed.toFixed(2)}):`, currentVal > 0 ? currentVal : totalOwed);
+            const valStr = prompt(`Enter payment amount (Max: $${totalOwed.toFixed(2)}):\n(Enter 0 to clear back to zero)`, currentVal > 0 ? currentVal : totalOwed);
             
             if (valStr === null) return;
 
@@ -1335,9 +1335,11 @@
                     const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
 
                     if (remainingOwed <= 0.005) {
-                        statusHtml = isAdmin 
-                            ? `<button class="btn-pay-green" onclick="promptCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Payment Settled ($${currentPaidVal.toFixed(2)})</button>`
-                            : '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                        if (isAdmin) {
+                            statusHtml = `<button class="btn-pay-green" onclick="promptCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Payment Settled ($${currentPaidVal.toFixed(2)})</button>`;
+                        } else {
+                            statusHtml = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                        }
                     } else {
                         if (isAdmin) {
                             if (currentPaidVal > 0) {
