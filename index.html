@@ -16,6 +16,10 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232c3e50'/><text x='50%' y='65%' font-size='50' text-anchor='middle' fill='%2327ae60'>$</text></svg>">
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%232c3e50'/><text x='50%' y='65%' font-size='50' text-anchor='middle' fill='%2327ae60'>$</text></svg>">
 
+    <!-- jsPDF and AutoTable Plugins for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
     <style>
         /* Global Reset & Base Styles */
         * {
@@ -83,6 +87,9 @@
         .btn-calc:hover { background-color: #1f6391; }
         .btn-export { background-color: #16a085; }
         .btn-export:hover { background-color: #117864; }
+        .btn-pdf { background-color: #c0392b; }
+        .btn-pdf:hover { background-color: #962d22; }
+
         .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
@@ -258,7 +265,7 @@
         <div class="card">
             <div class="filter-header">
                 <h2 id="log-title" style="margin: 0;">Logged Expenses</h2>
-                <div style="display: flex; gap: 8px; align-items: center;">
+                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                     <label for="month-filter"><strong>View Month:</strong> </label>
                     <select id="month-filter" onchange="onMonthFilterChange()" style="padding: 5px 10px; min-width: 150px;"></select>
                     <button class="btn-export" onclick="exportToCSV()" title="Download CSV for Selected Month">Export CSV</button>
@@ -285,6 +292,7 @@
             
             <div id="admin-month-filter" class="admin-filter-box" style="display: none;">
                 <button id="calc-btn" class="btn-calc" onclick="calculateSettlement()">Calculate Settlement for Selected Month</button>
+                <button id="btn-pdf" class="btn-pdf" onclick="exportToPDF()" title="Download Settlement Report PDF">Download Report PDF</button>
             </div>
         </div>
 
@@ -478,7 +486,6 @@
                 updateMonthDropdown();
                 renderExpenses();
                 renderPreviousMonthSummary();
-                // Removed calculateSettlement() here so admins don't see the report by default
             } catch (err) {
                 console.error('Error fetching cloud data:', err);
                 
@@ -759,7 +766,6 @@
         function onMonthFilterChange() {
             selectedMonth = document.getElementById('month-filter').value;
             renderExpenses();
-            // Hide the report card on month change so it requires clicking calculate again
             document.getElementById('report-card').style.display = 'none';
         }
 
@@ -833,7 +839,7 @@
             updateMonthDropdown();
 
             renderExpenses();
-            document.getElementById('report-card').style.display = 'none'; // Hide report until calculated
+            document.getElementById('report-card').style.display = 'none';
 
             await saveExpensesToCloud();
 
@@ -1390,6 +1396,125 @@
 
             document.body.removeChild(link);
             setTimeout(() => URL.revokeObjectURL(url), 100);
+        }
+
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            if (!jsPDF) {
+                alert("PDF library is still loading. Please try again in a moment.");
+                return;
+            }
+
+            const doc = new jsPDF();
+            const [year, month] = selectedMonth.split('-');
+            const monthLabel = new Date(year, month - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+
+            // Document Header
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(15);
+            doc.text("253 Herron Mews Main Floor Household Expense Tracker", 14, 18);
+            
+            doc.setFontSize(12);
+            doc.setTextColor(100);
+            doc.text(`Settlement Report: ${monthLabel}`, 14, 26);
+
+            // Calculations for Export
+            const isAugust2026 = (selectedMonth === '2026-08');
+            const upstairsShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
+            
+            let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            const shareHouseholdSpent = {};
+            const shareUtilitySpent = {};
+            upstairsShares.forEach(s => { shareHouseholdSpent[s] = 0; shareUtilitySpent[s] = 0; });
+
+            const filtered = getFilteredExpenses();
+            filtered.forEach(item => {
+                const key = (item.paidBy || '').toLowerCase().trim();
+                const shareUnit = userToShareMap[key];
+                if (!shareUnit || !upstairsShares.includes(shareUnit)) return;
+
+                if (item.category === 'shaw') { shawTotal += item.amount; shareUtilitySpent[shareUnit] += item.amount; }
+                else if (item.category === 'enmax') { enmaxTotal += item.amount; shareUtilitySpent[shareUnit] += item.amount; }
+                else if (item.category === 'atco') { atcoTotal += item.amount; shareUtilitySpent[shareUnit] += item.amount; }
+                else { householdTotal += item.amount; shareHouseholdSpent[shareUnit] += item.amount; }
+            });
+
+            const householdDivisor = isAugust2026 ? 3 : 5;
+            const utilityResidents = 8;
+            const mainFloorMultiplier = 3;
+            const utilityRatio = mainFloorMultiplier / utilityResidents;
+
+            const baseHouseholdShareAmount = householdTotal / householdDivisor;
+            const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
+            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const householdShareWeightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier;
+
+            // Summary Text block
+            let startY = 34;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            doc.setTextColor(50);
+            doc.text(`Total 3 Way Split: $${householdTotal.toFixed(2)} ($${baseHouseholdShareAmount.toFixed(2)} / share unit)`, 14, startY);
+            doc.text(`Shaw Internet: $${shawTotal.toFixed(2)} | Enmax: $${enmaxTotal.toFixed(2)} | Atco: $${atcoTotal.toFixed(2)}`, 14, startY + 6);
+            doc.text(`Main Floor Utility Share (${mainFloorMultiplier}/8th Total): $${mainFloorUtilityTotal.toFixed(2)}`, 14, startY + 12);
+
+            startY += 20;
+
+            // Table 1: Spending Breakdown
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text("1. Spending Breakdown by Share Unit", 14, startY);
+
+            const spendingRows = upstairsShares.map(shareUnit => {
+                const hSpent = shareHouseholdSpent[shareUnit] || 0;
+                const uSpent = shareUtilitySpent[shareUnit] || 0;
+                const displayUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
+                return [displayUnit, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
+            });
+
+            doc.autoTable({
+                startY: startY + 4,
+                head: [['Share Unit', '3 Way Split Spent', 'Utility Spent']],
+                body: spendingRows,
+                theme: 'grid',
+                headStyles: { fillColor: [44, 62, 80] }
+            });
+
+            // Table 2: Individual Balances & Settlement Summary
+            let finalY = doc.lastAutoTable.finalY + 10;
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text("2. Individual Balances & Settlement Summary", 14, finalY);
+
+            const settlementRows = upstairsShares.map(shareUnit => {
+                const hSpent = shareHouseholdSpent[shareUnit] || 0;
+                const uSpent = shareUtilitySpent[shareUnit] || 0;
+                const totalPaid = hSpent + (uSpent * utilityRatio);
+
+                const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
+                const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
+                const currentTarget = hTarget + uTarget;
+                const net = totalPaid - currentTarget;
+
+                let statusText = "Settled";
+                if (net > 0.005) statusText = `Gets Back: $${net.toFixed(2)}`;
+                else if (net < -0.005) statusText = `Owes: $${Math.abs(net).toFixed(2)}`;
+
+                const displayUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
+                return [displayUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
+            });
+
+            doc.autoTable({
+                startY: finalY + 4,
+                head: [['Share Unit', 'Total Paid', 'Target Share', 'Net Balance', 'Status']],
+                body: settlementRows,
+                theme: 'grid',
+                headStyles: { fillColor: [41, 128, 185] }
+            });
+
+            // Save PDF
+            doc.save(`MainFloor_Settlement_Report_${selectedMonth}.pdf`);
         }
     </script>
 </body>
