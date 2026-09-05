@@ -88,6 +88,12 @@
         .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; font-weight: bold; color: white; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
+        
+        /* Interactive Payment Buttons */
+        .btn-pay-red { background-color: #e74c3c; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; cursor: pointer; border: none; }
+        .btn-pay-red:hover { background-color: #c0392b; }
+        .btn-pay-green { background-color: #27ae60; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; cursor: pointer; border: none; }
+        .btn-pay-green:hover { background-color: #219150; }
 
         /* Previous Month Summary Banner */
         .prev-month-banner {
@@ -359,7 +365,7 @@
                             <th>Share Unit</th>
                             <th>Unpaid Balance from Last Month</th>
                             <th>Status</th>
-                            <th>Enter Payment ($)</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="prev-month-balances-list">
@@ -850,7 +856,7 @@
             submitBtn.innerText = 'Saving Expense...';
 
             const newExpenseMonth = date.slice(0, 7);
-            expenses.push({ id: Date.now(), date, category, paidBy: rawUser, description, amount, archived: false });
+            expenses.push({ id: Date.now(), date, category, rawUser, description, amount, archived: false });
             
             selectedMonth = newExpenseMonth;
             updateMonthDropdown();
@@ -915,7 +921,7 @@
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
 
-                const formattedPaidBy = item.paidBy ? item.paidBy.charAt(0).toUpperCase() + item.paidBy.slice(1) : '';
+                const formattedPaidBy = item.rawUser ? item.rawUser.charAt(0).toUpperCase() + item.rawUser.slice(1) : '';
 
                 row.innerHTML = `
                     <td>${item.date}</td>
@@ -982,12 +988,16 @@
             }
         }
 
-        async function onPrevMonthPaymentInput(month, shareUnit, totalOwed, inputEl) {
+        async function promptPrevMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const valStr = inputEl.value.trim();
+            const currentVal = monthlyPayments.prevMonthPaid?.[month]?.[shareUnit] || 0;
+            const valStr = prompt(`Enter payment amount for past due balance (Max: $${totalOwed.toFixed(2)}):`, currentVal > 0 ? currentVal : totalOwed);
+            
+            if (valStr === null) return;
+
             let newPaidAmount = 0;
-            if (valStr !== "") {
+            if (valStr.trim() !== "") {
                 const parsed = parseFloat(valStr);
                 if (isNaN(parsed) || parsed < 0) {
                     alert("Please enter a valid positive amount.");
@@ -1010,12 +1020,16 @@
             await saveExpensesToCloud();
         }
 
-        async function onCurrentMonthPaymentInput(month, shareUnit, netAmountOwed, inputEl) {
+        async function promptCurrentMonthPayment(month, shareUnit, totalOwed) {
             if (!isAdmin) return;
 
-            const valStr = inputEl.value.trim();
+            const currentVal = monthlyPayments.currentMonthPaid?.[month]?.[shareUnit] || 0;
+            const valStr = prompt(`Enter payment amount (Max: $${totalOwed.toFixed(2)}):`, currentVal > 0 ? currentVal : totalOwed);
+            
+            if (valStr === null) return;
+
             let newPaidAmount = 0;
-            if (valStr !== "") {
+            if (valStr.trim() !== "") {
                 const parsed = parseFloat(valStr);
                 if (isNaN(parsed) || parsed < 0) {
                     alert("Please enter a valid positive amount.");
@@ -1060,7 +1074,7 @@
                     });
 
                     prevExpenses.forEach(item => {
-                        const key = (item.paidBy || '').toLowerCase().trim();
+                        const key = (item.rawUser || '').toLowerCase().trim();
                         const shareUnit = userToShareMap[key] || "Jigneshkumar";
                         if (item.category === 'shaw') {
                             prevShawTotal += item.amount;
@@ -1125,7 +1139,7 @@
             });
 
             filtered.forEach(item => {
-                const key = (item.paidBy || '').toLowerCase().trim();
+                const key = (item.rawUser || '').toLowerCase().trim();
                 const shareUnit = userToShareMap[key];
                 if (!shareUnit || !upstairsShares.includes(shareUnit)) return;
 
@@ -1202,19 +1216,17 @@
                 const currentMonthTarget = hTarget + uTarget;
                 const net = totalPaidForNet - currentMonthTarget;
 
-                let paidAmount = 0;
-                if (net >= 0) {
-                    const remainingGet = net - paidAmount;
-                    if (remainingGet > 0.005) creditors.push({ person: shareUnit, amount: remainingGet });
-                } else {
-                    const totalOwed = Math.abs(net);
-                    const remainingDebt = totalOwed - paidAmount;
-                    if (remainingDebt > 0.005) debtors.push({ person: shareUnit, amount: remainingDebt });
+                const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
+                const adjustedNet = net + currentPaidVal;
+
+                if (adjustedNet >= 0.005) {
+                    creditors.push({ person: shareUnit, amount: adjustedNet });
+                } else if (adjustedNet <= -0.005) {
+                    debtors.push({ person: shareUnit, amount: Math.abs(adjustedNet) });
                 }
             });
 
             let debtorAttributions = {}; 
-            let creditorAttributions = {};
 
             if (debtors.length > 0 && creditors.length > 0) {
                 let dIndex = 0, cIndex = 0;
@@ -1227,21 +1239,12 @@
                     let transferAmount = Math.min(debtor.amount, creditor.amount);
 
                     let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
-                    let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
                     if (!debtorAttributions[creditor.person]) {
                         debtorAttributions[creditor.person] = [];
                     }
                     debtorAttributions[creditor.person].push({
                         name: debtorDisplayName,
-                        amount: transferAmount
-                    });
-
-                    if (!creditorAttributions[debtor.person]) {
-                        creditorAttributions[debtor.person] = [];
-                    }
-                    creditorAttributions[debtor.person].push({
-                        name: creditorDisplayName,
                         amount: transferAmount
                     });
 
@@ -1270,7 +1273,6 @@
                     let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
                     let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
 
-                    // Updated to show negative amount in red color instead of green
                     transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#c0392b; font-weight:bold;">-$${transferAmount.toFixed(2)}</span>`);
 
                     debtor.amount -= transferAmount;
@@ -1309,9 +1311,12 @@
                 let statusHtml = '';
                 let formattedNet = '';
 
+                const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
+
                 if (net >= 0) {
                     netClass = 'val-net-positive';
-                    if (net <= 0.005) {
+                    let effectiveNet = net + currentPaidVal;
+                    if (effectiveNet <= 0.005) {
                         statusHtml = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
                         formattedNet = `$0.00`;
                     } else {
@@ -1320,35 +1325,31 @@
                             let parts = debtorAttributions[shareUnit].map(d => `${d.name} ($${d.amount.toFixed(2)})`);
                             fromText = ` from ${parts.join(', ')}`;
                         }
-                        statusHtml = `Gets back $${net.toFixed(2)}${fromText}`;
-                        formattedNet = `$${net.toFixed(2)}`;
+                        statusHtml = `Gets back $${effectiveNet.toFixed(2)}${fromText}`;
+                        formattedNet = `$${effectiveNet.toFixed(2)}`;
                     }
                 } else {
                     const totalOwed = Math.abs(net);
                     netClass = 'val-net-negative';
                     
-                    const currentPaidVal = monthlyPayments.currentMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
                     const remainingOwed = Math.max(0, totalOwed - currentPaidVal);
 
                     if (remainingOwed <= 0.005) {
-                        statusHtml = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
+                        statusHtml = isAdmin 
+                            ? `<button class="btn-pay-green" onclick="promptCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Payment Settled ($${currentPaidVal.toFixed(2)})</button>`
+                            : '<span style="color: green; font-weight: bold;">Payment Settled</span>';
                     } else {
                         if (isAdmin) {
-                            statusHtml = `
-                                <div style="display: flex; flex-direction: column; gap: 4px;">
-                                    <span style="color: #c0392b; font-weight: bold;">Owes $${remainingOwed.toFixed(2)}</span>
-                                    <input type="number" step="0.01" min="0" max="${totalOwed.toFixed(2)}" 
-                                        value="${currentPaidVal > 0 ? currentPaidVal.toFixed(2) : ''}" 
-                                        placeholder="Enter payment ($)" 
-                                        onchange="onCurrentMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${totalOwed}, this)"
-                                        style="width: 150px; padding: 6px; font-size: 13px;">
-                                </div>
-                            `;
+                            if (currentPaidVal > 0) {
+                                statusHtml = `<button class="btn-pay-green" onclick="promptCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Paid $${currentPaidVal.toFixed(2)} (Re-enter)</button>`;
+                            } else {
+                                statusHtml = `<button class="btn-pay-red" onclick="promptCurrentMonthPayment('${selectedMonth}', '${shareUnit}', ${totalOwed})">Enter Payment</button>`;
+                            }
                         } else {
                             statusHtml = `<span style="color: #c0392b; font-weight: bold;">Owes $${remainingOwed.toFixed(2)}</span>`;
                         }
                     }
-                    formattedNet = `-$${totalOwed.toFixed(2)}`;
+                    formattedNet = `-$${remainingOwed.toFixed(2)}`;
                 }
 
                 const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
@@ -1383,7 +1384,7 @@
                     hasPrevBalances = true;
                 }
 
-                const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit];
+                const prevPaidVal = monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit] || 0;
                 
                 let customPaidAmount = 0;
                 if (prevPaidVal === true || prevPaidVal >= prevOwedAmt - 0.005) {
@@ -1402,24 +1403,23 @@
                 if (prevOwedAmt <= 0.005) {
                     statusBadge = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
                     prevOwedDisplay = '<span style="color: green; font-weight: bold;">$0.00 (Settled)</span>';
-                    actionHtml = isAdmin ? `<span style="color: green; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Settled ✓`;
+                    actionHtml = isAdmin ? `Settled ✓` : `Settled ✓`;
                 } else if (remainingPastDue <= 0.005) {
                     statusBadge = '<span style="color: green; font-weight: bold;">Payment Settled</span>';
                     prevOwedDisplay = `<span style="color: green; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Paid)</span>`;
-                    actionHtml = isAdmin ? `<span style="color: green; font-weight: bold;">Paid ✓ (Update Amount)</span>` : `Paid ✓`;
+                    actionHtml = isAdmin ? `<button class="btn-pay-green" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Paid $${customPaidAmount.toFixed(2)} (Re-enter)</button>` : `Paid ✓`;
                 } else {
                     statusBadge = '<span style="color: #c0392b; font-weight: bold;">Outstanding</span>';
                     prevOwedDisplay = `<span style="color: #c0392b; font-weight: bold;">-$${remainingPastDue.toFixed(2)} (Unpaid)</span>`;
-                }
-
-                if (isAdmin && prevOwedAmt > 0.005) {
-                    actionHtml = `
-                        <input type="number" step="0.01" min="0" max="${prevOwedAmt.toFixed(2)}" 
-                            value="${customPaidAmount > 0 ? customPaidAmount.toFixed(2) : ''}" 
-                            placeholder="Enter Payment ($${prevOwedAmt.toFixed(2)})" 
-                            onchange="onPrevMonthPaymentInput('${selectedMonth}', '${shareUnit}', ${prevOwedAmt}, this)"
-                            style="width: 180px; padding: 6px; font-size: 13px;">
-                    `;
+                    if (isAdmin) {
+                        if (customPaidAmount > 0) {
+                            actionHtml = `<button class="btn-pay-green" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Paid $${customPaidAmount.toFixed(2)} (Re-enter)</button>`;
+                        } else {
+                            actionHtml = `<button class="btn-pay-red" onclick="promptPrevMonthPayment('${selectedMonth}', '${shareUnit}', ${prevOwedAmt})">Enter Payment</button>`;
+                        }
+                    } else {
+                        actionHtml = `Unpaid`;
+                    }
                 }
 
                 const row = document.createElement('tr');
@@ -1451,7 +1451,7 @@
             let csvContent = "Date,Paid By,Category,Description,Amount\n";
 
             filtered.forEach(e => {
-                const formattedPaidBy = e.paidBy ? e.paidBy.charAt(0).toUpperCase() + e.paidBy.slice(1) : '';
+                const formattedPaidBy = e.rawUser ? e.rawUser.charAt(0).toUpperCase() + e.rawUser.slice(1) : '';
                 const escapedDesc = e.description ? `"${e.description.replace(/"/g, '""')}"` : '""';
                 const row = `"${e.date}","${formattedPaidBy}","${e.category}",${escapedDesc},${e.amount}`;
                 csvContent += row + "\n";
