@@ -199,22 +199,22 @@
                 gap: 8px;
             }
 
-            /* Fix input element stacking and sizing under Submit New Expense */
+            /* Fix input element stacking, width, and alignment */
             .form-group {
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
             }
 
-            input#date,
-            select#category,
-            input#description,
-            input#amount,
-            button#submit-btn {
+            .form-group input,
+            .form-group select,
+            .form-group button {
                 width: 100% !important;
                 min-width: 100% !important;
+                max-width: 100% !important;
                 flex: none !important;
-                box-sizing: border-box;
+                box-sizing: border-box !important;
+                margin: 0 !important;
             }
 
             .filter-header {
@@ -879,7 +879,7 @@
                     `;
                 }
 
-                let categoryTag = '<span style="color:#2980b9;">Household Expense</span>';
+                let categoryTag = '<span style="color:#2980b9;">Household Expense (3-way split)</span>';
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
