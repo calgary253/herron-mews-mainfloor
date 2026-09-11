@@ -277,7 +277,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" selected>Household Split (3-way split)</option>
+                    <option value="household" selected>Household Expense (3-way split)</option>
                     <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
                     <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
                     <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
@@ -879,7 +879,7 @@
                     `;
                 }
 
-                let categoryTag = '<span style="color:#2980b9;">Household Split</span>';
+                let categoryTag = '<span style="color:#2980b9;">Household Expense</span>';
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
@@ -1476,7 +1476,7 @@
                 return [shareUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
             });
 
-    doc.autoTable({
+            doc.autoTable({
                 startY: finalY + 4,
                 head: [['Person', 'Total Paid', 'Target Share', 'Net Balance', 'Status']],
                 body: settlementRows,
