@@ -100,30 +100,33 @@
         .btn-pay-green { background-color: #27ae60; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; font-weight: bold; border: none; cursor: pointer; }
         .btn-pay-green:hover { background-color: #219150; }
 
-        /* Previous Month Summary Banner Styling */
+        /* Previous Month Summary Card Styling (Basement UI match) */
         .prev-month-banner {
-            background: #fff5f5;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-left: 5px solid #e74c3c;
-            padding: 15px 20px;
-            border-radius: 0 6px 6px 0;
+            padding: 18px 20px;
+            border-radius: 8px;
             margin-bottom: 20px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.06);
         }
         .prev-month-banner.all-settled {
-            background: #f0fdf4;
             border-left-color: #27ae60;
         }
         .prev-month-banner h3 {
             margin-top: 0;
-            color: #2c3e50;
+            margin-bottom: 8px;
+            color: #1a252f;
             display: flex;
             align-items: center;
             gap: 8px;
+            font-size: 1.15rem;
         }
         .prev-month-banner p {
-            margin: 5px 0 0 0;
+            margin: 0;
             font-size: 15px;
             line-height: 1.5;
+            color: #4a5568;
         }
 
         /* Responsive Table Formatting */
@@ -271,7 +274,7 @@
             <div id="role-badge"></div>
         </div>
 
-        <!-- Previous Month Summary Banner (Displayed on Login) -->
+        <!-- Previous Month Summary Card (Basement UI match) -->
         <div id="prev-month-summary-container"></div>
 
         <h1>253 Herron Mews Main Floor Household Expense Tracker</h1>
@@ -586,7 +589,7 @@
             const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
             const totalTarget = hTarget + uTarget;
 
-            return paid - totalTarget; // Positive means net creditor (gets back), negative means net debtor (pays)
+            return paid - totalTarget;
         }
 
         function renderPreviousMonthSummary() {
@@ -597,7 +600,6 @@
             const userShareUnit = currentUserShare;
             const otherShareUnit = activeShares.find(s => s !== userShareUnit) || "Jigneshkumar";
 
-            // Determine the most recent previous recorded month (e.g., August 2026 if current is September 2026)
             const recordedMonths = Array.from(new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : '')))
                 .filter(ym => ym < currentYM && ym > "2026-07")
                 .sort()
@@ -613,13 +615,12 @@
                 return;
             }
 
-            const targetPrevMonthYM = recordedMonths[0]; // e.g. "2026-08"
+            const targetPrevMonthYM = recordedMonths[0];
             const [pYear, pMonthNum] = targetPrevMonthYM.split('-');
             const prevMonthLabel = new Date(pYear, pMonthNum - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
 
             const netForMonth = getMonthNetBalanceForShare(targetPrevMonthYM, userShareUnit);
             
-            // Account for any partial/full payment recorded for this specific previous month
             let customPaid = (monthlyPayments.currentMonthPaid?.[targetPrevMonthYM]?.[userShareUnit]) || 0;
             let effectivePaid = 0;
             if (customPaid === true || customPaid >= Math.abs(netForMonth) - 0.005) {
@@ -639,11 +640,9 @@
             let messageHtml = '';
 
             if (adjustedNet < -0.005) {
-                // User owes money to the other person (Negative / Red)
                 const amountOwed = Math.abs(adjustedNet);
                 messageHtml = `🛒 <strong>Household Standing (${prevMonthLabel})</strong>: You pay <strong style="color: #c0392b;">${otherShareUnit}</strong>: <span style="color: #c0392b; font-weight: bold;">-$${amountOwed.toFixed(2)}</span>`;
             } else if (adjustedNet > 0.005) {
-                // Other person owes money to the user (Positive / Green)
                 const amountDue = Math.abs(adjustedNet);
                 messageHtml = `🛒 <strong>Household Standing (${prevMonthLabel})</strong>: <strong style="color: #27ae60;">${otherShareUnit}</strong> pays you: <span style="color: #27ae60; font-weight: bold;">+$${amountDue.toFixed(2)}</span>`;
             } else {
