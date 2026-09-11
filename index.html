@@ -137,7 +137,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            word-break: normal;
+            table-layout: auto;
         }
 
         th, td {
@@ -151,7 +151,8 @@
 
         td.desc-cell {
             white-space: normal;
-            min-width: 150px;
+            min-width: 160px;
+            word-break: break-word;
         }
 
         .val-household { font-weight: bold; color: #2e7d32; }
@@ -218,6 +219,17 @@
                 flex-direction: column;
                 width: 100%;
                 gap: 8px !important;
+            }
+
+            /* Optimized mobile table spacing and padding */
+            .table-responsive {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                width: 100%;
+                min-width: 480px; /* Ensures columns maintain natural separation and don't bunch up */
             }
 
             th, td {
