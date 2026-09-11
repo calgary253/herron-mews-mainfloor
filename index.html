@@ -199,14 +199,22 @@
                 gap: 8px;
             }
 
+            /* Fix input element stacking and sizing under Submit New Expense */
             .form-group {
+                display: flex;
                 flex-direction: column;
-                gap: 8px;
+                gap: 10px;
             }
 
-            input, select, button {
-                width: 100%;
-                min-width: 100%;
+            input#date,
+            select#category,
+            input#description,
+            input#amount,
+            button#submit-btn {
+                width: 100% !important;
+                min-width: 100% !important;
+                flex: none !important;
+                box-sizing: border-box;
             }
 
             .filter-header {
@@ -269,7 +277,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" selected>Household Split (Proportional by Share Units)</option>
+                    <option value="household" selected>Household Split (household expense - 3way split)</option>
                     <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
                     <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
                     <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
@@ -321,7 +329,7 @@
             <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
             
             <div class="summary-box">
-                <p><strong>Total Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share-unit">0.00</span> / share unit)</em></p>
+                <p><strong>Total Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share-unit">0.00</span> / person)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / resident)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
@@ -1419,7 +1427,7 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(50);
-            doc.text(`Total Household Split: $${householdTotal.toFixed(2)} ($${householdCostPerShare.toFixed(2)} / share unit)`, 14, startY);
+            doc.text(`Total Household Split: $${householdTotal.toFixed(2)} ($${householdCostPerShare.toFixed(2)} / person)`, 14, startY);
             doc.text(`Shaw Internet: $${shawTotal.toFixed(2)} | Enmax: $${enmaxTotal.toFixed(2)} | Atco: $${atcoTotal.toFixed(2)}`, 14, startY + 6);
             doc.text(`Main Floor Utility Share (${mainFloorMultiplier}/8th Total): $${mainFloorUtilityTotal.toFixed(2)}`, 14, startY + 12);
 
