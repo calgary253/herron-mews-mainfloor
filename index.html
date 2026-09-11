@@ -229,7 +229,7 @@
 
             table {
                 width: 100%;
-                min-width: 480px; /* Ensures columns maintain natural separation and don't bunch up */
+                min-width: 480px;
             }
 
             th, td {
@@ -261,7 +261,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" selected>3 Way Split (Jignesh, Jaimin, Ishani)</option>
+                    <option value="household" selected>Household Split (Proportional by Share Units)</option>
                     <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
                     <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
                     <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
@@ -313,7 +313,7 @@
             <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
             
             <div class="summary-box">
-                <p><strong>Total Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share unit)</em></p>
+                <p><strong>Total Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share-unit">0.00</span> / share unit)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / resident)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
@@ -396,14 +396,21 @@
 
         const userToShareMap = {
             "jigneshkumar": "Jigneshkumar",
-            "jaimin": "Jaimin",
-            "ishani": "Ishani",
-            "ishanibhabhi": "Ishani"
+            "jaimin": "Jaimin & Ishani",
+            "ishani": "Jaimin & Ishani",
+            "ishanibhabhi": "Jaimin & Ishani"
         };
 
         const restrictedUsers = [];
         const TOTAL_UTILITY_RESIDENTS = 8;
-        const activeShares = ["Jigneshkumar", "Jaimin", "Ishani"];
+        const activeShares = ["Jigneshkumar", "Jaimin & Ishani"];
+        
+        // Share unit weight definitions (Jigneshkumar = 1 share, Jaimin & Ishani = 2 shares)
+        const householdShareWeights = {
+            "Jigneshkumar": 1,
+            "Jaimin & Ishani": 2
+        };
+        const TOTAL_HOUSEHOLD_SHARES = 3;
 
         let expenses = [];
         let monthlyPayments = {}; 
@@ -537,18 +544,14 @@
                 }
             });
 
-            const householdDivisor = 3;
             const utilityResidents = 8;
-            const mainFloorMultiplier = 3;
-            const utilityRatio = mainFloorMultiplier / utilityResidents;
-
-            const householdSharePerUnit = householdTotal / householdDivisor; 
+            const householdCostPerShare = householdTotal / TOTAL_HOUSEHOLD_SHARES;
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
             
-            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
 
             const paid = shareSpent[shareUnit] || 0;
-            const hTarget = householdSharePerUnit;
+            const hTarget = householdCostPerShare * householdShareWeights[shareUnit];
             const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
             const totalTarget = hTarget + uTarget;
             const netBeforePayment = paid - totalTarget;
@@ -556,7 +559,6 @@
             if (netBeforePayment < -0.005) {
                 const totalOwed = Math.abs(netBeforePayment);
                 
-                const nextMonthYM = getPreviousMonthString(targetMonthYM);
                 let customPaid = (monthlyPayments.currentMonthPaid?.[targetMonthYM]?.[shareUnit]) || 0;
                 if (!customPaid || customPaid === 0) {
                     customPaid = (monthlyPayments.prevMonthPaid?.[selectedMonth]?.[shareUnit]) || 0;
@@ -609,15 +611,13 @@
                 }
             });
 
-            const householdDivisor = 3;
             const utilityResidents = 8;
             const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
-            const householdSharePerUnit = householdTotal / householdDivisor; 
+            const householdCostPerShare = householdTotal / TOTAL_HOUSEHOLD_SHARES;
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
-            
-            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
 
             let debtors = [];
             let creditors = [];
@@ -627,7 +627,7 @@
                 const uSpent = shareUtilitySpent[s] || 0;
                 const paid = hSpent + (uSpent * utilityRatio);
                 
-                const hTarget = householdSharePerUnit;
+                const hTarget = householdCostPerShare * householdShareWeights[s];
                 const uTarget = utilitySharePerResident * residentCountMap[s];
                 const target = hTarget + uTarget;
                 const net = paid - target;
@@ -863,7 +863,7 @@
                     `;
                 }
 
-                let categoryTag = '<span style="color:#2980b9;">3 Way Split</span>';
+                let categoryTag = '<span style="color:#2980b9;">Household Split</span>';
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas</span>';
@@ -1033,21 +1033,20 @@
                         }
                     });
 
-                    const prevHouseholdDivisor = 3;
                     const prevUtilityResidents = 8;
                     const prevMainFloorMultiplier = 3;
                     const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
 
-                    const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
+                    const prevHouseholdCostPerShare = prevHouseholdTotal / TOTAL_HOUSEHOLD_SHARES;
                     const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / prevUtilityResidents);
-                    const prevResidentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
+                    const prevResidentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
 
                     activeShares.forEach(shareUnit => {
                         const hSpent = prevShareSpent[shareUnit] || 0;
                         const uSpent = prevShareUtilitySpent[shareUnit] || 0;
                         const paid = hSpent + (uSpent * prevUtilityRatio);
 
-                        const hTarget = prevHouseholdSharePerUnit;
+                        const hTarget = prevHouseholdCostPerShare * householdShareWeights[shareUnit];
                         const uTarget = prevUtilitySharePerResident * prevResidentCountMap[shareUnit];
                         
                         const totalTarget = hTarget + uTarget;
@@ -1099,22 +1098,21 @@
                 }
             });
 
-            const householdDivisor = 3;
             const utilityResidents = 8;
             const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
-            const baseHouseholdShareAmount = householdTotal / householdDivisor; 
+            const householdCostPerShare = householdTotal / TOTAL_HOUSEHOLD_SHARES;
             const shawSharePerResident = shawTotal / utilityResidents;         
             const enmaxSharePerResident = enmaxTotal / utilityResidents;       
             const atcoSharePerResident = atcoTotal / utilityResidents;         
             const utilitySharePerResident = shawSharePerResident + enmaxSharePerResident + atcoSharePerResident;
 
-            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
             const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier; 
 
             document.getElementById('household-total').innerText = householdTotal.toFixed(2);
-            document.getElementById('household-share').innerText = baseHouseholdShareAmount.toFixed(2);
+            document.getElementById('household-share-unit').innerText = householdCostPerShare.toFixed(2);
             document.getElementById('shaw-total').innerText = shawTotal.toFixed(2);
             document.getElementById('shaw-share').innerText = shawSharePerResident.toFixed(2);
             document.getElementById('enmax-total').innerText = enmaxTotal.toFixed(2);
@@ -1135,7 +1133,7 @@
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${shareUnit}</strong></td>
+                    <td><strong>${shareUnit}</strong> (${householdShareWeights[shareUnit]} share${householdShareWeights[shareUnit] > 1 ? 's' : ''})</td>
                     <td class="val-household">$${hSpent.toFixed(2)}</td>
                     <td class="val-utility">$${uSpent.toFixed(2)}</td>
                 `;
@@ -1150,7 +1148,7 @@
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 const totalPaidForNet = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount;
+                const hTarget = householdCostPerShare * householdShareWeights[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
                 const net = totalPaidForNet - currentMonthTarget;
@@ -1206,7 +1204,7 @@
                 
                 const displayTotalPaid = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount;
+                const hTarget = householdCostPerShare * householdShareWeights[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
                 const net = displayTotalPaid - currentMonthTarget;
@@ -1246,7 +1244,7 @@
                 }
 
                 row.innerHTML = `
-                    <td><strong>${shareUnit}</strong></td>
+                    <td><strong>${shareUnit}</strong> (${householdShareWeights[shareUnit]} share${householdShareWeights[shareUnit] > 1 ? 's' : ''})</td>
                     <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td>${netBalanceHtml}</td>
@@ -1400,14 +1398,13 @@
                 else { householdTotal += item.amount; shareHouseholdSpent[shareUnit] += item.amount; }
             });
 
-            const householdDivisor = 3;
             const utilityResidents = 8;
             const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
-            const baseHouseholdShareAmount = householdTotal / householdDivisor;
+            const householdCostPerShare = householdTotal / TOTAL_HOUSEHOLD_SHARES;
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
-            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
             const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier;
 
             // Summary Text block
@@ -1415,7 +1412,7 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(50);
-            doc.text(`Total Household Split: $${householdTotal.toFixed(2)} ($${baseHouseholdShareAmount.toFixed(2)} / share unit)`, 14, startY);
+            doc.text(`Total Household Split: $${householdTotal.toFixed(2)} ($${householdCostPerShare.toFixed(2)} / share unit)`, 14, startY);
             doc.text(`Shaw Internet: $${shawTotal.toFixed(2)} | Enmax: $${enmaxTotal.toFixed(2)} | Atco: $${atcoTotal.toFixed(2)}`, 14, startY + 6);
             doc.text(`Main Floor Utility Share (${mainFloorMultiplier}/8th Total): $${mainFloorUtilityTotal.toFixed(2)}`, 14, startY + 12);
 
@@ -1429,7 +1426,7 @@
             const spendingRows = activeShares.map(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
-                return [shareUnit, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
+                return [`${shareUnit} (${householdShareWeights[shareUnit]} shares)`, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
             });
 
             doc.autoTable({
@@ -1451,7 +1448,7 @@
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 const totalPaid = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount;
+                const hTarget = householdCostPerShare * householdShareWeights[shareUnit];
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentTarget = hTarget + uTarget;
                 const net = totalPaid - currentTarget;
@@ -1460,7 +1457,7 @@
                 if (net > 0.005) statusText = `Gets Back: $${net.toFixed(2)}`;
                 else if (net < -0.005) statusText = `Owes: $${Math.abs(net).toFixed(2)}`;
 
-                return [shareUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
+                return [`${shareUnit} (${householdShareWeights[shareUnit]} shares)`, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
             });
 
             doc.autoTable({
