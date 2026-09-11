@@ -249,7 +249,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" selected>3 Way Split</option>
+                    <option value="household" selected>3 Way Split (Jignesh, Jaimin, Ishani)</option>
                     <option value="shaw" class="admin-option">Shaw Internet (Utility Bill)</option>
                     <option value="enmax" class="admin-option">Enmax Electricity (Utility Bill)</option>
                     <option value="atco" class="admin-option">Atco Gas (Utility Bill)</option>
@@ -301,7 +301,7 @@
             <h2 id="report-title">Settlement Report (Main Floor Household)</h2>
             
             <div class="summary-box">
-                <p><strong>Total 3 Way Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share unit)</em></p>
+                <p><strong>Total Household Split:</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share unit)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p>🌐 <strong>Shaw Internet Total (Full Bill):</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / resident)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total (Full Bill):</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / resident)</em></p>
@@ -316,7 +316,7 @@
                     <thead>
                         <tr>
                             <th>Share Unit</th>
-                            <th>3 Way Split Spent</th>
+                            <th>Household Split Spent</th>
                             <th>Utility Spent</th>
                         </tr>
                     </thead>
@@ -384,17 +384,14 @@
 
         const userToShareMap = {
             "jigneshkumar": "Jigneshkumar",
-            "jaimin": "Jaimin & Ishani",
-            "ishani": "Jaimin & Ishani",
-            "ishanibhabhi": "Jaimin & Ishani",
-            "jaimin & ishani": "Jaimin & Ishani",
-            "viru": "Viru & Drashti",
-            "drashti": "Viru & Drashti",
-            "viru & drashti": "Viru & Drashti"
+            "jaimin": "Jaimin",
+            "ishani": "Ishani",
+            "ishanibhabhi": "Ishani"
         };
 
-        const restrictedUsers = ['viru', 'drashti', 'viru & drashti'];
+        const restrictedUsers = [];
         const TOTAL_UTILITY_RESIDENTS = 8;
+        const activeShares = ["Jigneshkumar", "Jaimin", "Ishani"];
 
         let expenses = [];
         let monthlyPayments = {}; 
@@ -421,14 +418,10 @@
         const currentUserShare = userToShareMap[normalizedKey] || rawUser;
         const displayUser = rawUser ? rawUser.charAt(0).toUpperCase() + rawUser.slice(1) : 'User';
 
-        const adminUsers = ['jigneshkumar', 'jaimin', 'ishani', 'ishanibhabhi', 'jaimin & ishani'];
+        const adminUsers = ['jigneshkumar', 'jaimin', 'ishani', 'ishanibhabhi'];
         const isAdmin = (adminUsers.includes(normalizedKey) && currentRole === 'admin');
 
         if (!rawUser || !userToShareMap[normalizedKey]) {
-            document.getElementById('error-screen').style.display = 'block';
-        } else if (restrictedUsers.includes(normalizedKey)) {
-            document.getElementById('error-title').innerText = "Access Restricted";
-            document.getElementById('error-message').innerText = "Access to this expense tracker is no longer available for Viru & Drashti.";
             document.getElementById('error-screen').style.display = 'block';
         } else {
             document.getElementById('app-container').style.display = 'block';
@@ -513,9 +506,6 @@
         function calculateMonthOwedForShare(targetMonthYM, shareUnit) {
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
             if (prevExpenses.length === 0) return 0;
-
-            const isAugust2026 = (targetMonthYM === '2026-08');
-            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
             if (!activeShares.includes(shareUnit)) return 0;
 
             let householdTotal = 0;
@@ -535,19 +525,18 @@
                 }
             });
 
-            const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 8;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
+            const householdDivisor = 3;
+            const utilityResidents = 8;
+            const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
             
-            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
 
             const paid = shareSpent[shareUnit] || 0;
-            const hTarget = householdSharePerUnit * weightMap[shareUnit];
+            const hTarget = householdSharePerUnit;
             const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
             const totalTarget = hTarget + uTarget;
             const netBeforePayment = paid - totalTarget;
@@ -577,9 +566,6 @@
         function getCreditorForShareInMonth(targetMonthYM, shareUnit) {
             const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(targetMonthYM));
             if (monthExpenses.length === 0) return null;
-
-            const isAugust2026 = (targetMonthYM === '2026-08');
-            const activeShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
             if (!activeShares.includes(shareUnit)) return null;
 
             let householdTotal = 0;
@@ -611,16 +597,15 @@
                 }
             });
 
-            const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 8;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
+            const householdDivisor = 3;
+            const utilityResidents = 8;
+            const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const householdSharePerUnit = householdTotal / householdDivisor; 
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
             
-            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const weightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
 
             let debtors = [];
             let creditors = [];
@@ -630,7 +615,7 @@
                 const uSpent = shareUtilitySpent[s] || 0;
                 const paid = hSpent + (uSpent * utilityRatio);
                 
-                const hTarget = householdSharePerUnit * weightMap[s];
+                const hTarget = householdSharePerUnit;
                 const uTarget = utilitySharePerResident * residentCountMap[s];
                 const target = hTarget + uTarget;
                 const net = paid - target;
@@ -669,21 +654,8 @@
             const container = document.getElementById('prev-month-summary-container');
             container.innerHTML = '';
 
-            if (normalizedKey === 'jaimin' || normalizedKey === 'ishani' || normalizedKey === 'ishanibhabhi' || normalizedKey === 'jaimin & ishani') {
-                return;
-            }
-
             const currentYM = getLocalMonthString();
             const userShareUnit = currentUserShare;
-            if (userShareUnit === "Viru & Drashti") {
-                container.innerHTML = `
-                    <div class="prev-month-banner">
-                        <h3>My Summary Cumulative Standing (Past Months Unpaid Carried Over)</h3>
-                        <p>💰 <strong>3 Way Split Expenses</strong>: You were removed from the equation for August 2026.</p>
-                    </div>
-                `;
-                return;
-            }
 
             const recordedMonths = Array.from(new Set(expenses.map(e => e.date ? e.date.slice(0, 7) : '')))
                 .filter(ym => ym < currentYM && ym > "2026-07")
@@ -713,7 +685,6 @@
                 }
             });
 
-            const combinedProfileTitle = userShareUnit;
             let bannerClass = "prev-month-banner";
             let messageHtml = '';
 
@@ -722,7 +693,7 @@
                 messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed</strong>: You owe $${cumulativePastDue.toFixed(2)} to <strong>${payeeName}</strong> across past recorded months.`;
             } else {
                 bannerClass += " all-settled";
-                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${combinedProfileTitle}</strong>: $0.00 (all past months fully settled ✓)`;
+                messageHtml = `⚠️ <strong>Cumulative Past Rent & Utilities Owed to ${userShareUnit}</strong>: $0.00 (all past months fully settled ✓)`;
             }
 
             container.innerHTML = `
@@ -802,11 +773,6 @@
 
         document.getElementById('expense-form').addEventListener('submit', async function(e) {
             e.preventDefault();
-
-            if (restrictedUsers.includes(normalizedKey)) {
-                alert("Action restricted. You are not allowed to submit expenses.");
-                return;
-            }
 
             const submitBtn = document.getElementById('submit-btn');
             const originalText = submitBtn.innerText;
@@ -1022,23 +988,17 @@
         }
 
         function calculateSettlement() {
-            const isAugust2026 = (selectedMonth === '2026-08');
-            const upstairsShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-
             const prevMonth = getPreviousMonthString(selectedMonth);
             let prevMonthOwedMap = {};
 
             if (prevMonth > "2026-07") {
                 const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
                 if (prevExpenses.length > 0) {
-                    const isPrevAugust2026 = (prevMonth === '2026-08');
-                    const prevActiveShares = isPrevAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-
                     let prevHouseholdTotal = 0;
                     let prevShawTotal = 0, prevEnmaxTotal = 0, prevAtcoTotal = 0;
                     const prevShareSpent = {};
                     const prevShareUtilitySpent = {};
-                    prevActiveShares.forEach(s => {
+                    activeShares.forEach(s => {
                         prevShareSpent[s] = 0;
                         prevShareUtilitySpent[s] = 0;
                     });
@@ -1061,22 +1021,21 @@
                         }
                     });
 
-                    const prevHouseholdDivisor = isPrevAugust2026 ? 3 : 5;
-                    const prevUtilityResidents = isPrevAugust2026 ? 8 : 8;
-                    const prevMainFloorMultiplier = isPrevAugust2026 ? 3 : 3;
+                    const prevHouseholdDivisor = 3;
+                    const prevUtilityResidents = 8;
+                    const prevMainFloorMultiplier = 3;
                     const prevUtilityRatio = prevMainFloorMultiplier / prevUtilityResidents;
 
                     const prevHouseholdSharePerUnit = prevHouseholdTotal / prevHouseholdDivisor; 
                     const prevUtilitySharePerResident = ((prevShawTotal + prevEnmaxTotal + prevAtcoTotal) / prevUtilityResidents);
-                    const prevResidentCountMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-                    const prevWeightMap = isPrevAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+                    const prevResidentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
 
-                    prevActiveShares.forEach(shareUnit => {
+                    activeShares.forEach(shareUnit => {
                         const hSpent = prevShareSpent[shareUnit] || 0;
                         const uSpent = prevShareUtilitySpent[shareUnit] || 0;
                         const paid = hSpent + (uSpent * prevUtilityRatio);
 
-                        const hTarget = prevHouseholdSharePerUnit * prevWeightMap[shareUnit];
+                        const hTarget = prevHouseholdSharePerUnit;
                         const uTarget = prevUtilitySharePerResident * prevResidentCountMap[shareUnit];
                         
                         const totalTarget = hTarget + uTarget;
@@ -1103,7 +1062,7 @@
 
             const shareHouseholdSpent = {};
             const shareUtilitySpent = {};
-            upstairsShares.forEach(shareUnit => {
+            activeShares.forEach(shareUnit => {
                 shareHouseholdSpent[shareUnit] = 0;
                 shareUtilitySpent[shareUnit] = 0;
             });
@@ -1111,7 +1070,7 @@
             filtered.forEach(item => {
                 const key = (item.paidBy || '').toLowerCase().trim();
                 const shareUnit = userToShareMap[key];
-                if (!shareUnit || !upstairsShares.includes(shareUnit)) return;
+                if (!shareUnit || !activeShares.includes(shareUnit)) return;
 
                 if (item.category === 'shaw') {
                     shawTotal += item.amount;
@@ -1128,9 +1087,9 @@
                 }
             });
 
-            const householdDivisor = isAugust2026 ? 3 : 5;
-            const utilityResidents = isAugust2026 ? 8 : 8;
-            const mainFloorMultiplier = isAugust2026 ? 3 : 3;
+            const householdDivisor = 3;
+            const utilityResidents = 8;
+            const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const baseHouseholdShareAmount = householdTotal / householdDivisor; 
@@ -1139,8 +1098,7 @@
             const atcoSharePerResident = atcoTotal / utilityResidents;         
             const utilitySharePerResident = shawSharePerResident + enmaxSharePerResident + atcoSharePerResident;
 
-            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const householdShareWeightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
             const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier; 
 
             document.getElementById('household-total').innerText = householdTotal.toFixed(2);
@@ -1159,14 +1117,13 @@
             const spendingBody = document.getElementById('spending-breakdown-list');
             spendingBody.innerHTML = '';
 
-            upstairsShares.forEach(shareUnit => {
+            activeShares.forEach(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
-                const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${displayShareUnit}</strong></td>
+                    <td><strong>${shareUnit}</strong></td>
                     <td class="val-household">$${hSpent.toFixed(2)}</td>
                     <td class="val-utility">$${uSpent.toFixed(2)}</td>
                 `;
@@ -1176,12 +1133,12 @@
             let debtors = [];
             let creditors = [];
 
-            upstairsShares.forEach(shareUnit => {
+            activeShares.forEach(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 const totalPaidForNet = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
+                const hTarget = baseHouseholdShareAmount;
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
                 const net = totalPaidForNet - currentMonthTarget;
@@ -1208,10 +1165,7 @@
                     let creditor = tempCreditors[cIndex];
                     let transferAmount = Math.min(debtor.amount, creditor.amount);
 
-                    let debtorDisplayName = (debtor.person === "Viru & Drashti") ? "Drashti & Viru" : debtor.person;
-                    let creditorDisplayName = (creditor.person === "Jaimin & Ishani") ? "Jaimin & Ishani" : creditor.person;
-
-                    transferSteps.push(`<strong>${debtorDisplayName}</strong> pays <strong>${creditorDisplayName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
+                    transferSteps.push(`<strong>${debtor.person}</strong> pays <strong>${creditor.person}</strong>: <span style="color:#27ae60; font-weight:bold;">$${transferAmount.toFixed(2)}</span>`);
 
                     debtor.amount -= transferAmount;
                     creditor.amount -= transferAmount;
@@ -1234,18 +1188,17 @@
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
-            upstairsShares.forEach(shareUnit => {
+            activeShares.forEach(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 
                 const displayTotalPaid = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
+                const hTarget = baseHouseholdShareAmount;
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentMonthTarget = hTarget + uTarget;
                 const net = displayTotalPaid - currentMonthTarget;
 
-                const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
                 const row = document.createElement('tr');
 
                 let netBalanceHtml = '';
@@ -1281,7 +1234,7 @@
                 }
 
                 row.innerHTML = `
-                    <td><strong>${displayShareUnit}</strong></td>
+                    <td><strong>${shareUnit}</strong></td>
                     <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td>${netBalanceHtml}</td>
@@ -1304,7 +1257,7 @@
             
             let hasPrevBalances = false;
 
-            upstairsShares.forEach(shareUnit => {
+            activeShares.forEach(shareUnit => {
                 const prevOwedAmt = prevMonthOwedMap[shareUnit] || 0;
                 if (prevOwedAmt > 0.005) {
                     hasPrevBalances = true;
@@ -1321,7 +1274,6 @@
                 }
 
                 const remainingPastDue = Math.max(0, prevOwedAmt - customPaidAmount);
-                const displayShareUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
 
                 let actionHtml = '';
                 let prevOwedDisplay = '';
@@ -1353,7 +1305,7 @@
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${displayShareUnit}</strong></td>
+                    <td><strong>${shareUnit}</strong></td>
                     <td>${prevOwedDisplay}</td>
                     <td>${actionHtml}</td>
                 `;
@@ -1419,19 +1371,16 @@
             doc.text(`Settlement Report: ${monthLabel}`, 14, 26);
 
             // Calculations for Export
-            const isAugust2026 = (selectedMonth === '2026-08');
-            const upstairsShares = isAugust2026 ? ["Jigneshkumar", "Jaimin & Ishani"] : ["Jigneshkumar", "Jaimin & Ishani", "Viru & Drashti"];
-            
             let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
             const shareHouseholdSpent = {};
             const shareUtilitySpent = {};
-            upstairsShares.forEach(s => { shareHouseholdSpent[s] = 0; shareUtilitySpent[s] = 0; });
+            activeShares.forEach(s => { shareHouseholdSpent[s] = 0; shareUtilitySpent[s] = 0; });
 
             const filtered = getFilteredExpenses();
             filtered.forEach(item => {
                 const key = (item.paidBy || '').toLowerCase().trim();
                 const shareUnit = userToShareMap[key];
-                if (!shareUnit || !upstairsShares.includes(shareUnit)) return;
+                if (!shareUnit || !activeShares.includes(shareUnit)) return;
 
                 if (item.category === 'shaw') { shawTotal += item.amount; shareUtilitySpent[shareUnit] += item.amount; }
                 else if (item.category === 'enmax') { enmaxTotal += item.amount; shareUtilitySpent[shareUnit] += item.amount; }
@@ -1439,15 +1388,14 @@
                 else { householdTotal += item.amount; shareHouseholdSpent[shareUnit] += item.amount; }
             });
 
-            const householdDivisor = isAugust2026 ? 3 : 5;
+            const householdDivisor = 3;
             const utilityResidents = 8;
             const mainFloorMultiplier = 3;
             const utilityRatio = mainFloorMultiplier / utilityResidents;
 
             const baseHouseholdShareAmount = householdTotal / householdDivisor;
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
-            const residentCountMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
-            const householdShareWeightMap = isAugust2026 ? { "Jigneshkumar": 1, "Jaimin & Ishani": 2 } : { "Jigneshkumar": 1, "Jaimin & Ishani": 2, "Viru & Drashti": 2 };
+            const residentCountMap = { "Jigneshkumar": 1, "Jaimin": 1, "Ishani": 1 };
             const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier;
 
             // Summary Text block
@@ -1455,7 +1403,7 @@
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
             doc.setTextColor(50);
-            doc.text(`Total 3 Way Split: $${householdTotal.toFixed(2)} ($${baseHouseholdShareAmount.toFixed(2)} / share unit)`, 14, startY);
+            doc.text(`Total Household Split: $${householdTotal.toFixed(2)} ($${baseHouseholdShareAmount.toFixed(2)} / share unit)`, 14, startY);
             doc.text(`Shaw Internet: $${shawTotal.toFixed(2)} | Enmax: $${enmaxTotal.toFixed(2)} | Atco: $${atcoTotal.toFixed(2)}`, 14, startY + 6);
             doc.text(`Main Floor Utility Share (${mainFloorMultiplier}/8th Total): $${mainFloorUtilityTotal.toFixed(2)}`, 14, startY + 12);
 
@@ -1466,16 +1414,15 @@
             doc.setFontSize(11);
             doc.text("1. Spending Breakdown by Share Unit", 14, startY);
 
-            const spendingRows = upstairsShares.map(shareUnit => {
+            const spendingRows = activeShares.map(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
-                const displayUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
-                return [displayUnit, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
+                return [shareUnit, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
             });
 
             doc.autoTable({
                 startY: startY + 4,
-                head: [['Share Unit', '3 Way Split Spent', 'Utility Spent']],
+                head: [['Share Unit', 'Household Split Spent', 'Utility Spent']],
                 body: spendingRows,
                 theme: 'grid',
                 headStyles: { fillColor: [44, 62, 80] }
@@ -1487,12 +1434,12 @@
             doc.setFontSize(11);
             doc.text("2. Individual Balances & Settlement Summary", 14, finalY);
 
-            const settlementRows = upstairsShares.map(shareUnit => {
+            const settlementRows = activeShares.map(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
                 const totalPaid = hSpent + (uSpent * utilityRatio);
 
-                const hTarget = baseHouseholdShareAmount * householdShareWeightMap[shareUnit];
+                const hTarget = baseHouseholdShareAmount;
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentTarget = hTarget + uTarget;
                 const net = totalPaid - currentTarget;
@@ -1501,8 +1448,7 @@
                 if (net > 0.005) statusText = `Gets Back: $${net.toFixed(2)}`;
                 else if (net < -0.005) statusText = `Owes: $${Math.abs(net).toFixed(2)}`;
 
-                const displayUnit = (shareUnit === "Viru & Drashti") ? "Drashti & Viru" : shareUnit;
-                return [displayUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
+                return [shareUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
             });
 
             doc.autoTable({
