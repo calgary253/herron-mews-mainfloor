@@ -221,7 +221,7 @@
                 gap: 8px !important;
             }
 
-            /* Optimized mobile table spacing and padding */
+            /* Optimized mobile table spacing, padding, and column alignment */
             .table-responsive {
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
@@ -235,6 +235,14 @@
             th, td {
                 padding: 8px 6px;
                 font-size: 13px;
+                vertical-align: middle;
+            }
+
+            /* Ensure date column stays neatly formatted and aligned */
+            table th:first-child,
+            table td:first-child {
+                white-space: nowrap;
+                width: 90px;
             }
         }
     </style>
@@ -322,12 +330,12 @@
                 <p><strong>Main Floor Utility Share (<span id="utility-multiplier-text">3</span>/8th Total):</strong> $<span id="utility-total">0.00</span></p>
             </div>
 
-            <h3>1. Spending Breakdown by Share Unit</h3>
+            <h3>1. Spending Breakdown by Person</h3>
             <div class="table-responsive">
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
+                            <th>Person</th>
                             <th>Household Split Spent</th>
                             <th>Utility Spent</th>
                         </tr>
@@ -350,7 +358,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
+                            <th>Person</th>
                             <th>Total Paid</th>
                             <th>Target Share</th>
                             <th>Net Balance</th>
@@ -370,7 +378,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Share Unit</th>
+                            <th>Person</th>
                             <th>Previous Month Due</th>
                             <th>Payment Action</th>
                         </tr>
@@ -1133,7 +1141,7 @@
 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${shareUnit}</strong> (${householdShareWeights[shareUnit]} share${householdShareWeights[shareUnit] > 1 ? 's' : ''})</td>
+                    <td><strong>${shareUnit}</strong></td>
                     <td class="val-household">$${hSpent.toFixed(2)}</td>
                     <td class="val-utility">$${uSpent.toFixed(2)}</td>
                 `;
@@ -1244,7 +1252,7 @@
                 }
 
                 row.innerHTML = `
-                    <td><strong>${shareUnit}</strong> (${householdShareWeights[shareUnit]} share${householdShareWeights[shareUnit] > 1 ? 's' : ''})</td>
+                    <td><strong>${shareUnit}</strong></td>
                     <td class="val-paid">$${displayTotalPaid.toFixed(2)}</td>
                     <td class="val-target">$${currentMonthTarget.toFixed(2)}</td>
                     <td>${netBalanceHtml}</td>
@@ -1404,7 +1412,6 @@
 
             const householdCostPerShare = householdTotal / TOTAL_HOUSEHOLD_SHARES;
             const utilitySharePerResident = ((shawTotal + enmaxTotal + atcoTotal) / utilityResidents);
-            const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
             const mainFloorUtilityTotal = utilitySharePerResident * mainFloorMultiplier;
 
             // Summary Text block
@@ -1421,17 +1428,17 @@
             // Table 1: Spending Breakdown
             doc.setFont("helvetica", "bold");
             doc.setFontSize(11);
-            doc.text("1. Spending Breakdown by Share Unit", 14, startY);
+            doc.text("1. Spending Breakdown by Person", 14, startY);
 
             const spendingRows = activeShares.map(shareUnit => {
                 const hSpent = shareHouseholdSpent[shareUnit] || 0;
                 const uSpent = shareUtilitySpent[shareUnit] || 0;
-                return [`${shareUnit} (${householdShareWeights[shareUnit]} shares)`, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
+                return [shareUnit, `$${hSpent.toFixed(2)}`, `$${uSpent.toFixed(2)}`];
             });
 
             doc.autoTable({
                 startY: startY + 4,
-                head: [['Share Unit', 'Household Split Spent', 'Utility Spent']],
+                head: [['Person', 'Household Split Spent', 'Utility Spent']],
                 body: spendingRows,
                 theme: 'grid',
                 headStyles: { fillColor: [44, 62, 80] }
@@ -1449,6 +1456,7 @@
                 const totalPaid = hSpent + (uSpent * utilityRatio);
 
                 const hTarget = householdCostPerShare * householdShareWeights[shareUnit];
+                const residentCountMap = { "Jigneshkumar": 1, "Jaimin & Ishani": 2 };
                 const uTarget = utilitySharePerResident * residentCountMap[shareUnit];
                 const currentTarget = hTarget + uTarget;
                 const net = totalPaid - currentTarget;
@@ -1457,12 +1465,12 @@
                 if (net > 0.005) statusText = `Gets Back: $${net.toFixed(2)}`;
                 else if (net < -0.005) statusText = `Owes: $${Math.abs(net).toFixed(2)}`;
 
-                return [`${shareUnit} (${householdShareWeights[shareUnit]} shares)`, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
+                return [shareUnit, `$${totalPaid.toFixed(2)}`, `$${currentTarget.toFixed(2)}`, `$${net.toFixed(2)}`, statusText];
             });
 
             doc.autoTable({
                 startY: finalY + 4,
-                head: [['Share Unit', 'Total Paid', 'Target Share', 'Net Balance', 'Status']],
+                head: [['Person', 'Total Paid', 'Target Share', 'Net Balance', 'Status']],
                 body: settlementRows,
                 theme: 'grid',
                 headStyles: { fillColor: [41, 128, 185] }
